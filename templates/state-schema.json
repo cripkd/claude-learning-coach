@@ -1,0 +1,264 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "exam-coach-state-schema-v1",
+  "title": "Exam Coach State",
+  "description": "JSON Schema for data/state.json — the structured state layer maintained by Claude alongside the markdown files.",
+  "type": "object",
+  "required": ["schemaVersion", "exam", "student", "plan", "domains", "phases", "calibration", "misses", "watchlist", "sources", "diagnostic", "readiness", "lastUpdated"],
+  "additionalProperties": false,
+  "properties": {
+
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version. Increment on breaking changes.",
+      "example": "1.0"
+    },
+
+    "exam": {
+      "type": "object",
+      "required": ["fullName", "shortName", "date", "passMarkPercent", "caseMode"],
+      "additionalProperties": false,
+      "properties": {
+        "fullName":       { "type": "string", "description": "Full exam name, e.g. 'AWS Solutions Architect Associate'" },
+        "shortName":      { "type": "string", "description": "Short abbreviation, e.g. 'SAA-C03'" },
+        "date":           { "type": ["string", "null"], "description": "Exam date in YYYY-MM-DD, or null if ongoing" },
+        "passMarkPercent":{ "type": "number", "minimum": 0, "maximum": 100, "description": "Pass mark as integer percent, e.g. 72" },
+        "caseMode":       { "type": "string", "enum": ["exam-defined", "pool-derived", "recall"], "description": "How case patterns are sourced" }
+      }
+    },
+
+    "student": {
+      "type": "object",
+      "required": ["name", "learningStyle"],
+      "additionalProperties": false,
+      "properties": {
+        "name":          { "type": "string", "description": "Student name or 'the student'" },
+        "learningStyle": { "type": "string", "description": "e.g. 'scenarios/hands-on', 'drilling', 'mixed'" }
+      }
+    },
+
+    "plan": {
+      "type": "object",
+      "required": ["totalDays", "startDate", "currentDay", "daysRemainingUntilExam"],
+      "additionalProperties": false,
+      "properties": {
+        "totalDays":               { "type": "integer", "minimum": 1 },
+        "startDate":               { "type": ["string", "null"], "description": "YYYY-MM-DD" },
+        "currentDay":              { "type": "integer", "minimum": 1 },
+        "daysRemainingUntilExam":  { "type": ["integer", "null"], "description": "Null if exam date is 'ongoing'" }
+      }
+    },
+
+    "domains": {
+      "type": "array",
+      "description": "One entry per declared exam domain.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "weight", "taskStatements"],
+        "additionalProperties": false,
+        "properties": {
+          "id":             { "type": "string", "description": "Stable identifier, e.g. 'D1'" },
+          "name":           { "type": "string", "description": "Domain name" },
+          "weight":         { "type": "number", "minimum": 0, "maximum": 100, "description": "Domain weight as percent, e.g. 27" },
+          "taskStatements": { "type": "array", "items": { "type": "string" }, "description": "Task statement IDs covered by this domain" }
+        }
+      }
+    },
+
+    "phases": {
+      "type": "array",
+      "description": "One entry per study phase. Phases end in a phase exam.",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "dayRange", "days", "phaseExam"],
+        "additionalProperties": false,
+        "properties": {
+          "id":       { "type": "string", "description": "e.g. 'P1'" },
+          "title":    { "type": "string" },
+          "dayRange": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[startDay, endDay] inclusive"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["day", "date", "topics", "status", "quizScore", "notes"],
+              "additionalProperties": false,
+              "properties": {
+                "day":       { "type": "integer" },
+                "date":      { "type": ["string", "null"], "description": "YYYY-MM-DD, null if not yet reached" },
+                "topics":    { "type": "array", "items": { "type": "string" }, "description": "Task statement IDs covered this day" },
+                "status":    { "type": "string", "enum": ["pending", "in-progress", "partial", "complete"] },
+                "quizScore": {
+                  "type": ["object", "null"],
+                  "properties": {
+                    "correct": { "type": "integer" },
+                    "total":   { "type": "integer" },
+                    "percent": { "type": "number" }
+                  },
+                  "additionalProperties": false
+                },
+                "notes": { "type": "string" }
+              }
+            }
+          },
+          "phaseExam": {
+            "type": "object",
+            "required": ["completed", "date", "score", "total", "notes"],
+            "additionalProperties": false,
+            "properties": {
+              "completed": { "type": "boolean" },
+              "date":      { "type": ["string", "null"] },
+              "score":     { "type": ["integer", "null"] },
+              "total":     { "type": ["integer", "null"] },
+              "notes":     { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "calibration": {
+      "type": "array",
+      "description": "Predicted-vs-actual log. One entry per quiz or phase exam.",
+      "items": {
+        "type": "object",
+        "required": ["date", "label", "predictedPercent", "actualPercent", "delta", "interpretation"],
+        "additionalProperties": false,
+        "properties": {
+          "date":             { "type": "string", "description": "YYYY-MM-DD" },
+          "label":            { "type": "string", "description": "Identifies the quiz/exam, e.g. 'Phase 1 exam' or 'Day 7 quiz'" },
+          "predictedPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+          "actualPercent":    { "type": "number", "minimum": 0, "maximum": 100 },
+          "delta":            { "type": "number", "description": "actualPercent - predictedPercent. Positive = underconfident." },
+          "interpretation":   { "type": "string", "enum": ["underconfident", "calibrated", "overconfident"] }
+        }
+      }
+    },
+
+    "misses": {
+      "type": "array",
+      "description": "All miss entries. Each entry is stable — IDs never renumbered.",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "domain", "occurrences", "occurrenceCount", "onWatchlist", "watchlistPosition", "diagnostic", "lastSeen"],
+        "additionalProperties": false,
+        "properties": {
+          "id":               { "type": "string", "description": "Stable ID assigned at creation, e.g. 'miss-0001'" },
+          "label":            { "type": "string", "description": "Trap-name handle matching the misses.md entry label" },
+          "domain":           { "type": "string", "description": "Domain ID, e.g. 'D1', or 'meta' for exam-grammar entries" },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["date", "location"],
+              "additionalProperties": false,
+              "properties": {
+                "date":     { "type": "string" },
+                "location": { "type": "string", "description": "e.g. 'Day 3 Q2' or 'Phase 1 exam Q7'" }
+              }
+            }
+          },
+          "occurrenceCount":  { "type": "integer", "minimum": 1 },
+          "onWatchlist":      { "type": "boolean" },
+          "watchlistPosition":{ "type": ["integer", "null"], "description": "Position in the Watchlist if onWatchlist is true" },
+          "diagnostic":       { "type": "string", "description": "One-sentence question or handle for drilling this trap" },
+          "lastSeen":         { "type": "string", "description": "YYYY-MM-DD of most recent occurrence" }
+        }
+      }
+    },
+
+    "watchlist": {
+      "type": "array",
+      "description": "Derived from misses where onWatchlist=true. Sorted by position ascending. Maintained as a separate array for dashboard convenience.",
+      "items": {
+        "type": "object",
+        "required": ["position", "missId", "label", "occurrenceCount", "lastSeen", "diagnostic"],
+        "additionalProperties": false,
+        "properties": {
+          "position":        { "type": "integer", "minimum": 1 },
+          "missId":          { "type": "string", "description": "References misses[].id" },
+          "label":           { "type": "string" },
+          "occurrenceCount": { "type": "integer", "minimum": 2 },
+          "lastSeen":        { "type": "string" },
+          "diagnostic":      { "type": "string" }
+        }
+      }
+    },
+
+    "sources": {
+      "type": "object",
+      "required": ["primary", "secondary", "tertiary"],
+      "additionalProperties": false,
+      "properties": {
+        "primary":   { "$ref": "#/$defs/sourceList" },
+        "secondary": { "$ref": "#/$defs/sourceList" },
+        "tertiary":  { "$ref": "#/$defs/sourceList" }
+      }
+    },
+
+    "diagnostic": {
+      "type": "object",
+      "required": ["completed", "date", "perDomain"],
+      "additionalProperties": false,
+      "properties": {
+        "completed": { "type": "boolean" },
+        "date":      { "type": ["string", "null"] },
+        "perDomain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["domainId", "questionsAsked", "correct", "percent"],
+            "additionalProperties": false,
+            "properties": {
+              "domainId":      { "type": "string" },
+              "questionsAsked":{ "type": "integer" },
+              "correct":       { "type": "integer" },
+              "percent":       { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+
+    "readiness": {
+      "type": "object",
+      "required": ["lastUpdated", "coldWaterEstimatePercent", "marginOverCutPercent", "noiseModelStdDevPercent", "passProbabilityRoughEstimate", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "lastUpdated":                 { "type": ["string", "null"] },
+        "coldWaterEstimatePercent":    { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "marginOverCutPercent":        { "type": ["number", "null"] },
+        "noiseModelStdDevPercent":     { "type": "number", "default": 7, "description": "Assumed exam-day noise std dev. Default 7. Configurable." },
+        "passProbabilityRoughEstimate":{ "type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "1 - normalCDF((passMarkPercent - estimate) / stdDev). Computed by Claude, not by dashboard." },
+        "summary":                     { "type": "string", "description": "One-sentence prose summary, e.g. '90-94% blended cold-water; 250-point margin over cut'" }
+      }
+    },
+
+    "lastUpdated": {
+      "type": "string",
+      "description": "ISO 8601 timestamp of last state write, e.g. '2025-03-14T18:30:00Z'"
+    }
+
+  },
+
+  "$defs": {
+    "sourceList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "label", "retrievedDate"],
+        "additionalProperties": false,
+        "properties": {
+          "path":          { "type": "string", "description": "Relative path from project root, e.g. 'sources/exam-guide.md'" },
+          "label":         { "type": "string" },
+          "retrievedDate": { "type": ["string", "null"], "description": "YYYY-MM-DD" }
+        }
+      }
+    }
+  }
+}

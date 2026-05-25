@@ -1,0 +1,40 @@
+# ── macOS ────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Editor / IDE ─────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Internal design notes (not user-facing) ──────────────────
+learning-coach-design-doc.md
+
+# ── Course workspaces (personal study data) ──────────────────
+# courses/ contains session logs, quiz records, source materials,
+# and progress data. This is private and must not be published
+# to the public template repo.
+#
+# Students who want to track their own progress in a private fork
+# can remove this line from their personal copy of .gitignore.
+courses/
+
+# ── Root-level files left over from /init-coach test runs ────
+# These should not exist in the template repo. Delete them with:
+#   rm memory.md progress.md cheatsheet.md misses.md cases.md \
+#      SOURCES.md DIAGNOSTIC.md CALIBRATION.md
+# The root CLAUDE.md is the static dispatcher — it IS committed.
+memory.md
+progress.md
+cheatsheet.md
+misses.md
+cases.md
+SOURCES.md
+DIAGNOSTIC.md
+CALIBRATION.md
+
+# ── Node (if ever adding a build step — v1 has none) ─────────
+node_modules/

@@ -1,0 +1,551 @@
+/* ============================================================
+   Exam Coach Dashboard — Dark Theme
+   5-color palette: bg, fg, accent, success, warning (+danger)
+   No framework. CSS custom properties + grid/flexbox only.
+   ============================================================ */
+
+:root {
+  --bg:         #0f0f17;
+  --bg-card:    #1a1a2e;
+  --bg-hover:   #22223a;
+  --fg:         #e8e8f0;
+  --fg-muted:   #5a5a7a;
+  --accent:     #7c6af7;
+  --success:    #4caf7d;
+  --warning:    #e8a838;
+  --danger:     #e05a5a;
+  --border:     #2a2a42;
+  --radius:     8px;
+  --font:       -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono:  'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ─── Reset & Base ──────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 15px; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  line-height: 1.6;
+  padding: 0 0 48px;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+ul { list-style: none; }
+ol { list-style: decimal inside; }
+
+/* ─── App Layout ────────────────────────────────────────────── */
+
+#app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ─── Header Strip ──────────────────────────────────────────── */
+
+#header-strip {
+  background: var(--bg-card);
+  border-bottom: 2px solid var(--accent);
+  padding: 16px 20px;
+  margin: 0 -20px 4px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.exam-short {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.exam-full {
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+}
+
+.header-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meta-chip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+.meta-chip.chip-warn {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+/* ─── Cards ─────────────────────────────────────────────────── */
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.card-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  margin-bottom: 14px;
+}
+
+.subtitle {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85em;
+}
+
+/* ─── Readiness Card ────────────────────────────────────────── */
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.readiness-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+}
+
+.formula-note {
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1.1;
+}
+
+.readiness-summary {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+/* ─── Color utility classes ─────────────────────────────────── */
+
+.muted  { color: var(--fg-muted); }
+.good   { color: var(--success); }
+.warn   { color: var(--warning); }
+.bad    { color: var(--danger); }
+
+.prob-good { color: var(--success); }
+.prob-warn { color: var(--warning); }
+.prob-bad  { color: var(--danger); }
+
+.delta-good { color: var(--success); }
+.delta-warn { color: var(--warning); }
+.delta-bad  { color: var(--danger); }
+
+.success { color: var(--success); }
+.accent  { color: var(--accent); }
+
+/* ─── Progress Bar ──────────────────────────────────────────── */
+
+.progress-meta {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+
+.progress-track {
+  height: 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 6px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.progress-label {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  text-align: right;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+
+/* ─── Phase Breakdown ───────────────────────────────────────── */
+
+.phase-row {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+}
+
+.phase-row:last-child { border-bottom: none; }
+
+.phase-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.phase-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.phase-range {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.exam-score {
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  margin-left: auto;
+  color: var(--success);
+}
+
+.exam-score.muted { color: var(--fg-muted); }
+
+.day-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pill {
+  font-size: 0.9rem;
+  line-height: 1;
+  display: inline-block;
+}
+
+/* ─── Calibration Chart ─────────────────────────────────────── */
+
+.chart-container {
+  height: 200px;
+  margin-bottom: 16px;
+}
+
+.calibration-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.calibration-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.calibration-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+
+.calibration-table tr:last-child td { border-bottom: none; }
+
+/* ─── Domain Coverage ───────────────────────────────────────── */
+
+.domain-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.domain-bar-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 80px;
+  align-items: center;
+  gap: 12px;
+}
+
+.domain-label {
+  font-size: 0.83rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.domain-weight {
+  font-size: 0.75em;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.domain-bar-track {
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.domain-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.domain-pct {
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+/* ─── Quiz Table ────────────────────────────────────────────── */
+
+.quiz-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.quiz-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.quiz-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+
+.quiz-table tr:last-child td { border-bottom: none; }
+
+/* ─── Watchlist ─────────────────────────────────────────────── */
+
+.watchlist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: decimal inside;
+}
+
+.watchlist-item {
+  border-left: 3px solid var(--warning);
+  padding: 8px 0 8px 12px;
+}
+
+.watchlist-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.watchlist-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+
+.watchlist-diagnostic {
+  font-size: 0.83rem;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+/* ─── Recent Misses ─────────────────────────────────────────── */
+
+.misses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.miss-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.miss-item:last-child { border-bottom: none; }
+
+.miss-item.on-watchlist { border-left: 3px solid var(--warning); padding-left: 10px; }
+
+.miss-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.miss-domain {
+  font-size: 0.75em;
+  font-family: var(--font-mono);
+  margin-left: 6px;
+}
+
+.miss-meta {
+  font-size: 0.78rem;
+  margin-bottom: 2px;
+}
+
+.miss-diagnostic {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+/* ─── Badges ────────────────────────────────────────────────── */
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+  vertical-align: middle;
+}
+
+.badge-repeat {
+  background: rgba(232, 168, 56, 0.18);
+  color: var(--warning);
+  border: 1px solid rgba(232, 168, 56, 0.4);
+}
+
+/* ─── Source Priority Strip ─────────────────────────────────── */
+
+.source-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.source-tier {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-tier-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.source-count {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.source-date {
+  font-size: 0.75rem;
+}
+
+.source-list {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  list-style: none;
+}
+
+.source-list li { padding: 1px 0; }
+
+/* ─── Footer ────────────────────────────────────────────────── */
+
+#last-updated {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  padding: 16px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.separator { margin: 0 6px; }
+
+/* ─── Not-configured state ──────────────────────────────────── */
+
+.not-configured {
+  text-align: center;
+  padding: 48px 20px;
+}
+
+.not-configured h1 {
+  font-size: 1.4rem;
+  color: var(--fg);
+  margin-bottom: 10px;
+}
+
+.not-configured p {
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+  max-width: 400px;
+  margin: 0 auto 16px;
+}
+
+.not-configured code {
+  font-family: var(--font-mono);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--accent);
+}

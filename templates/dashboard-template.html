@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Coach Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- 1. Header strip: exam name, exam date, days remaining, current day, current phase -->
+    <header id="header-strip"></header>
+
+    <!-- 2. Headline readiness: cold-water estimate, margin over pass mark, rough pass probability -->
+    <section id="readiness-card" class="card"></section>
+
+    <!-- 3. Progress bar: % of total study days complete -->
+    <section id="progress-bar-section" class="card"></section>
+
+    <!-- 4. Phase breakdown: each phase as a row with day-status pills and phase exam score -->
+    <section id="phase-breakdown" class="card"></section>
+
+    <!-- 5. Calibration chart: predicted vs actual % over time -->
+    <section id="calibration-chart" class="card"></section>
+
+    <!-- 6. Domain coverage: weighted bar chart (% covered × domain weight) -->
+    <section id="domain-coverage" class="card"></section>
+
+    <!-- 7. Recent quiz scores: last 5 with score and date -->
+    <section id="recent-quizzes" class="card"></section>
+
+    <!-- 8. Repeat-Miss Watchlist: numbered list with occurrence count and most-recent date -->
+    <section id="watchlist" class="card"></section>
+
+    <!-- 9. Recent misses: last 5 by lastSeen -->
+    <section id="recent-misses" class="card"></section>
+
+    <!-- 10. Source priority strip: primary/secondary/tertiary counts + last-touched dates -->
+    <section id="source-priority" class="card"></section>
+
+    <footer id="last-updated"></footer>
+
+  </div>
+
+  <!--
+    STATE INJECTION BLOCK
+    Claude replaces __STATE_PLACEHOLDER__ with the literal contents of data/state.json
+    on every dashboard regeneration. Do not edit the placeholder or the script tag manually.
+    Regeneration: read this file → replace __STATE_PLACEHOLDER__ → write to dashboard/index.html
+  -->
+  <script type="application/json" id="state">
+__STATE_PLACEHOLDER__
+  </script>
+
+  <!--
+    Chart.js via CDN — used for calibration chart and domain coverage.
+    Requires internet on first load. For fully offline operation, comment this out
+    and switch to the hand-rolled SVG functions in dashboard.js.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
