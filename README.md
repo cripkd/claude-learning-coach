@@ -18,7 +18,7 @@ A Claude Code-powered structured-learning coach for cert prep, board exams, lang
 ## Quick start
 
 ```bash
-git clone https://github.com/your-handle/exam-coach-template my-exam-prep
+git clone https://github.com/cripkd/claude-learning-coach my-exam-prep
 cd my-exam-prep
 claude          # opens Claude Code in this directory
 ```
