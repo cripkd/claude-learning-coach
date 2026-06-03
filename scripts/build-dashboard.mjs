@@ -36,7 +36,12 @@ const REPO_ROOT  = resolve(__dirname, '..');
 const SCHEMA_PATH   = join(REPO_ROOT, 'templates', 'state-schema.json');
 const TEMPLATE_PATH = join(REPO_ROOT, 'templates', 'dashboard-template.html');
 const PLACEHOLDER   = '__STATE_PLACEHOLDER__';
-const CURRENT_VERSION = '2.0';
+const CURRENT_VERSION = '2.1';
+
+// Calibration debias parameters
+const CALIB_MIN_SAMPLES = 5;    // Below this, fall back to the prior (no debias)
+const PRIOR_STDDEV      = 7;    // Default ±% exam-day noise prior
+const MIN_STDDEV        = 3;    // Observed stdev clamped here to avoid overconfident probabilities
 
 // ─── CLI parsing ─────────────────────────────────────────────────────────────
 
@@ -64,7 +69,18 @@ function usage() {
   ].join('\n');
 }
 
-// ─── Migration: v1.x → 2.0 ───────────────────────────────────────────────────
+// ─── Migration chain ─────────────────────────────────────────────────────────
+
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const da = pa[i] ?? 0, db = pb[i] ?? 0;
+    if (da !== db) return da < db ? -1 : 1;
+  }
+  return 0;
+}
 
 function deriveExamProfile(state) {
   // Map caseMode → scenarioRecallRatio (orthogonal axis: caseMode stays as-is).
@@ -82,33 +98,121 @@ function deriveExamProfile(state) {
   };
 }
 
-function needsMigration(state) {
-  if (!state || typeof state !== 'object') return false;
-  if (!state.examProfile) return true;
-  const v = state.schemaVersion;
-  if (typeof v !== 'string') return true;
-  // String comparison works for "1.0" < "2.0"; if you go to 2.1 etc., parse properly.
-  return compareVersions(v, CURRENT_VERSION) < 0;
+// 1.x → 2.0: introduce examProfile derived from existing fields.
+function migrateTo20(state) {
+  if (!state.examProfile) state.examProfile = deriveExamProfile(state);
+  state.schemaVersion = '2.0';
+  return state;
 }
 
-function compareVersions(a, b) {
-  const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
-  const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
-  const len = Math.max(pa.length, pb.length);
-  for (let i = 0; i < len; i++) {
-    const da = pa[i] ?? 0, db = pb[i] ?? 0;
-    if (da !== db) return da < db ? -1 : 1;
-  }
-  return 0;
+// 2.0 → 2.1: introduce readiness debias fields. Defaults preserve v2.0 numbers.
+function migrateTo21(state) {
+  const r = state.readiness || {};
+  state.readiness = {
+    ...r,
+    biasCorrectionPercent: r.biasCorrectionPercent ?? 0,
+    sampleSize:            r.sampleSize ?? 0,
+    // Debiased defaults to the raw estimate until computeReadiness runs.
+    debiasedEstimatePercent: r.debiasedEstimatePercent ?? r.coldWaterEstimatePercent ?? null,
+    qualitativeBand:       r.qualitativeBand ?? null,
+  };
+  state.schemaVersion = '2.1';
+  return state;
 }
 
 function migrate(state) {
-  if (!needsMigration(state)) return { state, migrated: false };
-  const next = { ...state };
-  if (!next.examProfile) next.examProfile = deriveExamProfile(next);
-  next.schemaVersion = CURRENT_VERSION;
-  return { state: next, migrated: true };
+  let migrated = false;
+  // The chain. Each step is idempotent and only runs if the file predates the target.
+  if (!state.examProfile || compareVersions(state.schemaVersion || '0', '2.0') < 0) {
+    state = migrateTo20(state); migrated = true;
+  }
+  if (compareVersions(state.schemaVersion || '0', '2.1') < 0) {
+    state = migrateTo21(state); migrated = true;
+  }
+  return { state, migrated };
 }
+
+// ─── Readiness math (script-owned) ───────────────────────────────────────────
+
+function normalCDF(z) {
+  // Abramowitz & Stegun 26.2.17 — accurate to ~7.5e-8 for |z| ≤ 7.
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.39894228 * Math.exp(-z * z / 2);
+  const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return z >= 0 ? 1 - p : p;
+}
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function meanAndStdev(values) {
+  if (values.length === 0) return { mean: 0, stdev: 0 };
+  const mean = values.reduce((s, v) => s + v, 0) / values.length;
+  if (values.length === 1) return { mean, stdev: 0 };
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / (values.length - 1);
+  return { mean, stdev: Math.sqrt(variance) };
+}
+
+function qualitativeBandFor(estimate) {
+  if (estimate === null || estimate === undefined) return null;
+  if (estimate >= 85) return 'Strong — comfortable margin';
+  if (estimate >= 75) return 'Likely passing';
+  if (estimate >= 65) return 'Marginal — could go either way';
+  return 'Weak — more work needed';
+}
+
+// Recomputes the script-owned readiness fields. Pure: returns a new readiness
+// object without mutating the input. Coach-owned fields (coldWaterEstimatePercent,
+// summary, lastUpdated) are passed through unchanged.
+function computeReadiness(state) {
+  const r = state.readiness || {};
+  const cal = state.calibration || [];
+  const deltas = cal.map(c => c?.delta).filter(d => typeof d === 'number' && Number.isFinite(d));
+  const sampleSize = deltas.length;
+
+  let bias = 0;
+  let stdDev = PRIOR_STDDEV;
+  if (sampleSize >= CALIB_MIN_SAMPLES) {
+    const stats = meanAndStdev(deltas);
+    bias = stats.mean;
+    stdDev = Math.max(MIN_STDDEV, stats.stdev);
+  }
+
+  const coldWater = r.coldWaterEstimatePercent;
+  const debiased = (coldWater === null || coldWater === undefined)
+    ? null
+    : clamp(coldWater + bias, 0, 100);
+
+  const passMark = state?.exam?.passMarkPercent;
+  const scoringModel = state?.examProfile?.scoring?.model || 'fixed_percent';
+
+  let margin = null;
+  let prob = null;
+  let band = null;
+
+  if (scoringModel === 'pass_fail_unknown') {
+    // No cut → qualitative only
+    band = qualitativeBandFor(debiased);
+  } else if (debiased !== null && typeof passMark === 'number') {
+    // fixed_percent / scaled — both math in percent space
+    margin = round2(debiased - passMark);
+    const z = (passMark - debiased) / stdDev;
+    prob = clamp(round3(1 - normalCDF(z)), 0, 1);
+  }
+
+  return {
+    ...r,
+    debiasedEstimatePercent: debiased === null ? null : round2(debiased),
+    marginOverCutPercent: margin,
+    noiseModelStdDevPercent: round2(stdDev),
+    passProbabilityRoughEstimate: prob,
+    biasCorrectionPercent: round2(bias),
+    sampleSize,
+    qualitativeBand: band,
+  };
+}
+
+function round2(v) { return Math.round(v * 100) / 100; }
+function round3(v) { return Math.round(v * 1000) / 1000; }
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
@@ -210,8 +314,15 @@ async function main() {
     return 3;
   }
 
-  // Migrate-then-validate — never validate-then-fail on a pre-migration file.
-  const { state, migrated } = migrate(rawState);
+  // Migrate-then-recompute-then-validate. Migration is a one-shot lift to the
+  // current schema. Readiness recomputation runs on every build so the
+  // dashboard's headline numbers track calibration history deterministically.
+  const beforeJson = JSON.stringify(rawState);
+  const migrateResult = migrate(rawState);
+  let state = migrateResult.state;
+  const migrated = migrateResult.migrated;
+
+  state = { ...state, readiness: computeReadiness(state) };
 
   let schema;
   try { schema = await loadSchema(); }
@@ -220,7 +331,7 @@ async function main() {
   const validate = buildValidator(schema);
   const valid = validate(state);
   if (!valid) {
-    console.error(`Validation failed for ${paths.statePath} (after migration):`);
+    console.error(`Validation failed for ${paths.statePath} (after migration + readiness recompute):`);
     console.error(formatAjvErrors(validate.errors));
     return 2;
   }
@@ -230,14 +341,15 @@ async function main() {
     return 0;
   }
 
-  // If we migrated, persist the upgraded state so the next read sees v2.0.
-  // This is the documented migrate-then-validate flow; the persisted file then
-  // matches what the dashboard embeds.
-  if (migrated) {
+  // Persist the updated state when anything changed (migration or readiness
+  // recompute). Comparing serialized strings is sufficient because the script
+  // preserves key order between reads/writes after the first build.
+  const afterJson = JSON.stringify(state);
+  if (beforeJson !== afterJson) {
     try {
       await writeFile(paths.statePath, JSON.stringify(state, null, 2) + '\n', 'utf8');
     } catch (e) {
-      console.error(`Migration write failed for ${paths.statePath}: ${e.message}`);
+      console.error(`State write failed for ${paths.statePath}: ${e.message}`);
       return 3;
     }
   }

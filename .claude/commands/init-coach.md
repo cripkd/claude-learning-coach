@@ -82,6 +82,24 @@ If **recall:** Note that the case-practice phase will be skipped and those days 
 
 Store: `CASE_MODE` = `"exam-defined"` | `"pool-derived"` | `"recall"`. Store pool definitions or scenario list as needed for `cases.md`.
 
+### Q7a — Scoring & question format (optional — defaults cover most cert exams)
+
+Ask only if there's any signal the exam is **not** the default shape (fixed-percent cutoff, 4 options per question, single correct). If the student didn't mention any of these in earlier answers, ask once with this prompt and accept *"default"* as a complete answer:
+
+> A few quick exam-format details (skip with "default" if you're not sure — defaults match AWS / Azure / GCP / Anthropic-style exams):
+> - **Scoring:** *fixed percent* (e.g., "you need 72%"), *scaled score* (e.g., "you need 720 of 1000"), or *pass/fail with no published cut*?
+> - **Options per question:** 4 (default) or 5?
+> - **Any multiple-correct questions?** No (default) — or yes, in which case: all-or-nothing scoring (whole question right) or partial credit?
+
+Parse the answer and store:
+
+- `SCORING_MODEL`: `"fixed_percent"` (default) | `"scaled"` | `"pass_fail_unknown"`
+- `SCALE_MIN`, `SCALE_MAX`: numbers from a scaled answer (e.g., `100` and `1000` for AWS); both `null` for the other models. If the student said "scaled" but didn't give the range, ask for it as a follow-up.
+- `OPTION_COUNT`: `4` (default) or `5`. Reject anything else; if the student claims another count, warn that it's untested and proceed with 4.
+- `MULTIPLE_CORRECT`: `false` (default) | `true`. If `true`, also store `PARTIAL_CREDIT`: `"all_or_nothing"` (default) | `"partial"`.
+
+If the answer was *"default"* (or the student skipped this question), use every default above.
+
 ### Q8 — Study days
 > How many total study days do you have available before the exam (or as your initial learning budget)?
 
@@ -289,7 +307,7 @@ Write a fully populated `courses/{COURSE_SLUG}/data/state.json` using the schema
 Key field values:
 
 ```
-schemaVersion: "2.0"
+schemaVersion: "2.1"
 exam.fullName: EXAM_FULL_NAME
 exam.shortName: EXAM_SHORT_NAME
 exam.date: EXAM_DATE (null if "ongoing")
@@ -299,9 +317,10 @@ exam.caseMode: CASE_MODE
 examProfile:
   profile: "mcq"
   scenarioRecallRatio: 1.0 if CASE_MODE in ("exam-defined","pool-derived"); 0.0 if CASE_MODE == "recall"
-  blueprint: { mode: BLUEPRINT_MODE }   # "weighted" | "unweighted" | "none" (from Q6)
-  scoring: { model: "fixed_percent", scaleMin: null, scaleMax: null }
-  questionFormat: { optionCount: 4, multipleCorrect: false, partialCredit: "all_or_nothing" }
+  blueprint: { mode: BLUEPRINT_MODE }                              # "weighted" | "unweighted" | "none" (from Q6)
+  scoring: { model: SCORING_MODEL, scaleMin: SCALE_MIN, scaleMax: SCALE_MAX }   # from Q7a; defaults: fixed_percent / null / null
+  questionFormat: { optionCount: OPTION_COUNT, multipleCorrect: MULTIPLE_CORRECT, partialCredit: PARTIAL_CREDIT }
+    # from Q7a; defaults: 4 / false / "all_or_nothing"
   adaptive: false
 
 student.name: STUDENT_NAME
@@ -356,13 +375,22 @@ diagnostic:
 readiness:
   lastUpdated: today's date
   coldWaterEstimatePercent: null
+  summary: ""
+  # Everything else (margin, stdDev, probability, bias, sampleSize, debiased, band) is
+  # recomputed by scripts/build-dashboard.mjs on every build. Initial defaults that the
+  # script will overwrite immediately:
   marginOverCutPercent: null
   noiseModelStdDevPercent: 7
   passProbabilityRoughEstimate: null
-  summary: ""
+  biasCorrectionPercent: 0
+  sampleSize: 0
+  debiasedEstimatePercent: null
+  qualitativeBand: null
 
 lastUpdated: today's date + "T00:00:00Z"
 ```
+
+`schemaVersion` is `"2.1"`.
 
 **Exam pass mark:** if the student didn't mention it during Q6 and it's a well-known exam, use the known pass mark. If unknown, default to 72 and add a note: "I've defaulted the pass mark to 72% — update `exam.passMarkPercent` in `data/state.json` if you know the actual value."
 

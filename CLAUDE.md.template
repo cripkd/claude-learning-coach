@@ -304,10 +304,28 @@ Use the schema in `templates/state-schema.json` as reference. Key invariants:
 - `status` values: `"pending"`, `"in-progress"`, `"partial"`, `"complete"`
 - Miss IDs are stable strings assigned at creation (`miss-0001`, `miss-0002`…) — never renumbered
 - `watchlist[]` is kept sorted by `position` ascending
-- `readiness.passProbabilityRoughEstimate` is computed as `1 - normalCDF((passMarkPercent - coldWaterEstimatePercent) / noiseModelStdDevPercent)` — compute this whenever `coldWaterEstimatePercent` changes; store the result (0–1 float, e.g. `0.94`)
-- `schemaVersion` is `"2.0"`. The `examProfile` block carries the MCQ exam descriptor — leave its defaults unless the student explicitly redefines the exam format.
+- `schemaVersion` is `"2.1"`. The `examProfile` block carries the MCQ exam descriptor — leave its defaults unless the student explicitly redefines the exam format.
+
+**Readiness — write only the coach-owned fields:**
+- `readiness.coldWaterEstimatePercent` (your raw vibes-based blended estimate)
+- `readiness.summary` (one-sentence prose)
+- `readiness.lastUpdated` (when you last refreshed the above)
+
+Do **not** write `marginOverCutPercent`, `noiseModelStdDevPercent`, `passProbabilityRoughEstimate`, `biasCorrectionPercent`, `sampleSize`, `debiasedEstimatePercent`, or `qualitativeBand` by hand. `scripts/build-dashboard.mjs` recomputes them on every build:
+- Bias correction = mean(calibration[].delta) when there are ≥ 5 entries; below that, bias defaults to 0 (don't overfit on small samples).
+- Noise stdev = observed stdev(delta) when ≥ 5 entries (clamped to a 3% floor); below that, the ±7% prior.
+- Pass probability = `1 − normalCDF((passMarkPercent − debiasedEstimatePercent) / stdDev)`, where debiased = clamp(coldWater + bias, 0..100).
+- For `examProfile.scoring.model = "pass_fail_unknown"`, margin and probability are suppressed; a qualitative band is set from the debiased estimate instead.
 
 If your write produces an invalid state, the hook will log a validation error and the previous dashboard remains intact. Fix the state and re-write.
+
+### Multiple-correct quiz scoring (when `examProfile.questionFormat.multipleCorrect = true`)
+
+For a question with `K` correct selections out of `optionCount` options:
+- `partialCredit = "all_or_nothing"` (default): the question contributes 1 to `quizScore.correct` iff the student selected exactly the correct set; otherwise 0. `quizScore.correct` stays integer.
+- `partialCredit = "partial"`: the question contributes `max(0, (correctSelections − incorrectSelections) / K)` to `quizScore.correct` (clamped to 0..1 per question). `quizScore.correct` is a float (e.g. `7.5`). `quizScore.percent` is `correct / total * 100`.
+
+`quizScore.total` is always the integer question count (not selection count). The dashboard displays `correct/total` as-is.
 
 ### Mention the dashboard at session end
 

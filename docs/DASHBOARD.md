@@ -120,27 +120,32 @@ All percent fields are integers or floats in 0–100 range (not decimals: `83`, 
 
 ---
 
-## Pass probability — honest framing
+## Pass probability — honest framing (script-computed and debiased)
 
-The dashboard shows a **rough pass probability** computed as:
+The dashboard shows a **rough pass probability** computed deterministically by `scripts/build-dashboard.mjs` on every build. The coach writes the raw cold-water estimate and a one-line summary; the script handles all the math.
 
 ```
-P(score ≥ pass_mark) = 1 - Φ((pass_mark - estimate) / std_dev)
+debiased_estimate = clamp(cold_water + bias, 0..100)
+P(score ≥ pass_mark) = 1 - Φ((pass_mark - debiased_estimate) / std_dev)
 ```
 
 Where:
-- `estimate` = `readiness.coldWaterEstimatePercent` (Claude's honest assessment)
+- `cold_water` = `readiness.coldWaterEstimatePercent` (coach-written; raw vibes-based estimate)
+- `bias`      = `readiness.biasCorrectionPercent` (script: mean of `calibration[].delta` when there are ≥ 5 entries; else 0)
+- `std_dev`   = `readiness.noiseModelStdDevPercent` (script: observed stdev of `delta` when ≥ 5 entries, clamped to a 3% floor; else the ±7% prior)
 - `pass_mark` = `exam.passMarkPercent`
-- `std_dev` = `readiness.noiseModelStdDevPercent` (default: 7%)
-- `Φ` = the standard normal CDF
+- `Φ`         = standard normal CDF (Abramowitz & Stegun 26.2.17 approximation)
 
-**This is labeled in the dashboard as: "Rough pass probability (assuming ±7% exam-day noise)"**
+Why debias? An overconfident student keeps predicting higher than they actually score. Over time `calibration[].delta` accumulates negative deltas; the script averages them and subtracts the bias from the headline number. The user sees both: the **debiased estimate** in the headline plus a transparency line — *"Raw cold-water 85%; debiased by −7.2% (overconfident over 5 quizzes)."* — so the correction is auditable.
 
-The standard deviation is a heuristic — exam-day variance depends on sleep, question sampling, and factors the model can't know. The formula is shown next to the number so the student understands this is not a forecast. The noise model std dev is configurable in `state.json` under `readiness.noiseModelStdDevPercent`.
+**Below 5 calibration points, the script falls back to bias = 0 and the ±7% prior** to avoid overfitting on small samples. The dashboard labels which mode it's in: `(±7% noise, prior)` vs `(±3% noise, from 5 quizzes)`.
 
-Claude computes this value when updating readiness. The dashboard renders it as-is; it does not recompute from raw fields.
+**Scoring-model variants (`examProfile.scoring.model`):**
+- `fixed_percent` (default) — `passMarkPercent` is a raw percent (e.g., 72%). Margin and probability computed as above.
+- `scaled` — `passMarkPercent` is the percent-equivalent of the scaled cutoff; `scaleMin`/`scaleMax` give the scale (e.g., 100–1000). The dashboard labels the cutoff as *"720 of 1000 (72%)"* via linear interpolation. Math runs in percent space — if the actual scoring curve is non-linear (AWS's actually is), the displayed scaled number is an approximation, not a forecast.
+- `pass_fail_unknown` — no published cut. Margin and probability are both suppressed; the dashboard shows a **qualitative band** instead (Strong / Likely passing / Marginal / Weak), derived from the debiased estimate alone.
 
-**Color coding:**
+**Color coding (numeric probability):**
 - ≥ 0.95 (95%) → green
 - ≥ 0.75 (75%) → amber
 - < 0.75 → red

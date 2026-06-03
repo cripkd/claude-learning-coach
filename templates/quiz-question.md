@@ -6,18 +6,34 @@
 
 ## Generation constraints
 
-Generate a scenario-grounded MCQ with the following constraints:
+Generate a scenario-grounded MCQ with the following constraints. The option count and correctness rules come from `examProfile.questionFormat` in `data/state.json`; the defaults below match a typical 4-option single-correct exam.
 
 1. **Ground in a case pattern** drawn from `cases.md` (named scenario or pool-cross). If the case mode is `"recall"`, ground in a domain-specific scenario instead.
-2. **4 options, one correct, three plausible distractors.** Each distractor should target a named trap from `misses.md` if one applies — this maximizes drilling value.
-3. **Distractors should look defensible** — vary option length; the correct answer is sometimes the shortest option. Avoid "obviously wrong" distractors that a student can eliminate by surface reading.
-4. **Letter distribution** — randomize correct-answer placement across A/B/C/D over a quiz session. Do not bias toward A or B.
-5. **Answer-leak prevention (critical):**
-   - Never include a sample or format-example answer string of any kind in the quiz prompt. No `"(e.g., A)"`, no `"(format: letter)"`, no demonstration showing a question→letter mapping.
+2. **Option count = `examProfile.questionFormat.optionCount`** (default 4; 5 also supported). For 5-option, generate one correct answer and four plausible distractors instead of three. The extra distractor lets you drill two traps in one question.
+3. **Single- vs multiple-correct** = `examProfile.questionFormat.multipleCorrect` (default `false`).
+   - **Single-correct (default):** one correct answer, the rest plausible distractors. Each distractor should target a named trap from `misses.md` if one applies — this maximizes drilling value.
+   - **Multiple-correct:** between 2 and `optionCount−1` correct options. Tell the student explicitly how many to pick (e.g., *"Select 2 that apply"* — never *"Select all that apply"* without a count, which leaks set size from context). Distractors still target traps.
+4. **Distractors should look defensible** — vary option length; the correct answer is sometimes the shortest option. Avoid "obviously wrong" distractors that a student can eliminate by surface reading.
+5. **Letter distribution** — randomize correct-answer placement across the option letters over a quiz session. Do not bias toward A or B. For multi-correct, also randomize *which letters* the correct set occupies (avoid contiguous runs like "A,B" every time).
+6. **Answer-leak prevention (critical):**
+   - Never include a sample or format-example answer string of any kind in the quiz prompt. No `"(e.g., A)"`, no `"(format: letter)"`, no demonstration showing a question→letter mapping. For multi-correct, no `"(e.g., A and C)"` either.
    - End every quiz message on neutral closing prose — not on a numbered list, not on a question token, not on anything autocomplete could extend into a question→letter mapping. Close with a sentence like `"Reply when ready."` or `"Post your answers and I'll walk through each option."` with no trailing example or list.
    - This applies on top of: warning the student to ignore input-field auto-suggestions, and randomizing correct-answer letter distribution.
-6. **Difficulty** — test the edges and traps, not memorization. The question should require the student to apply a decision rule, not recall a definition.
-7. **Post-answer explanation** — after the student answers, explain ALL four options: why the correct answer is correct, and specifically why each distractor fails (name the trap it exploits).
+7. **Difficulty** — test the edges and traps, not memorization. The question should require the student to apply a decision rule, not recall a definition.
+8. **Post-answer explanation** — after the student answers, explain ALL options: why each correct answer is correct, and specifically why each distractor fails (name the trap it exploits).
+
+---
+
+## Scoring per question (when `multipleCorrect = true`)
+
+`examProfile.questionFormat.partialCredit` decides how to score a multi-correct question. `K` = number of correct selections in this question.
+
+| partialCredit | Per-question contribution to `quizScore.correct` |
+|---|---|
+| `"all_or_nothing"` (default) | `1` if the student picks exactly the correct set; `0` otherwise. `quizScore.correct` stays an integer. |
+| `"partial"` | `max(0, (correctPicks − incorrectPicks) / K)`, clamped to `[0, 1]`. `quizScore.correct` may be a float (e.g. `7.5`). |
+
+`quizScore.total` is always the integer question count (not selection count). `quizScore.percent = correct / total * 100`. The dashboard renders `correct/total (percent%)` directly — both representations work.
 
 ---
 

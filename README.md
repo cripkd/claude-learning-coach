@@ -11,9 +11,12 @@ What this template targets today, what's planned, and what it isn't trying to do
 **Supported now**
 - Scenario-based multiple-choice certification exams with tiered textual sources (primary / secondary / tertiary).
 - Blueprint variants: **weighted** (e.g., AWS / Azure / GCP / Anthropic cert exams with published per-domain weights), **unweighted** (domains listed without weights — equal allocation), and **no blueprint** (domains emerge from the diagnostic and early sessions).
+- Scoring variants: **fixed percent**, **scaled score** (e.g., 720 of 1000), and **pass/fail with no published cut** (qualitative readiness band).
+- Question formats: 4 or 5 options, single-correct (default) or **multiple-correct** with all-or-nothing or partial credit.
+- Readiness self-correction: the dashboard debiases the cold-water estimate from the student's own predicted-vs-actual history once there are ≥ 5 calibration points.
 
 **Not yet (roadmap)**
-- Broader MCQ varieties: recall-heavy question mixes, scaled scores, multiple-correct answers.
+- Recall-heavy question mixes (the underlying schema supports a scenarioRecallRatio knob; the daily-session protocol still front-loads scenarios).
 - Question-bank import.
 - Sparse-source handling (when authoritative sources are partial or missing).
 
@@ -67,6 +70,7 @@ The setup is a guided interview — no manual file editing required:
 5. **How you learn best** — scenarios/hands-on, lecture-style, drilling, or mixed
 6. **Exam domains** — list with weights if known (e.g., `"D1: 30%, D2: 22%, ..."`)
 7. **Case reasoning vs recall** — does the exam test integrated scenarios, or is it primarily recall? (affects phase plan shape)
+7a. **Scoring & question format** (optional — defaults match a typical cert exam) — fixed-percent / scaled / pass-fail-unknown cutoff; 4 or 5 options; single- or multiple-correct (with all-or-nothing or partial credit). Skip with `"default"`.
 8. **Total study days available** — integer
 9. **Source materials** — paths/files to drop in, or `"I'll add them later"`
 10. **License preference** — default MIT

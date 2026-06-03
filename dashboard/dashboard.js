@@ -140,43 +140,96 @@ function renderHeaderStrip(state) {
 // ─── 2. Readiness Card ───────────────────────────────────────────────────────
 
 function renderReadinessCard(state) {
-  const { readiness, exam } = state;
-  const estimate = readiness.coldWaterEstimatePercent;
+  const { readiness, exam, examProfile } = state;
+
+  const scoringModel = (examProfile && examProfile.scoring && examProfile.scoring.model) || 'fixed_percent';
+  const scaleMin = examProfile && examProfile.scoring && examProfile.scoring.scaleMin;
+  const scaleMax = examProfile && examProfile.scoring && examProfile.scoring.scaleMax;
+
+  // Prefer debiased estimate (script-computed); fall back to raw cold-water for pre-2.1 data.
+  const rawEstimate = readiness.coldWaterEstimatePercent;
+  const estimate    = (readiness.debiasedEstimatePercent !== undefined && readiness.debiasedEstimatePercent !== null)
+    ? readiness.debiasedEstimatePercent
+    : rawEstimate;
+
   const prob     = readiness.passProbabilityRoughEstimate;
   const margin   = readiness.marginOverCutPercent;
   const stdDev   = readiness.noiseModelStdDevPercent || 7;
+  const bias     = readiness.biasCorrectionPercent || 0;
+  const n        = readiness.sampleSize || 0;
+  const band     = readiness.qualitativeBand;
 
-  const probPct  = (prob !== null && prob !== undefined) ? Math.round(prob * 100) : null;
-  const marginCls = margin === null ? 'muted' : margin >= 0 ? 'good' : 'bad';
+  // Pass-mark label
+  let passMarkLabel;
+  if (scoringModel === 'scaled' && scaleMin != null && scaleMax != null) {
+    const scaledPass = Math.round(scaleMin + (exam.passMarkPercent / 100) * (scaleMax - scaleMin));
+    passMarkLabel = `${scaledPass} of ${scaleMax} (${exam.passMarkPercent}%)`;
+  } else if (scoringModel === 'pass_fail_unknown') {
+    passMarkLabel = 'Not published';
+  } else {
+    passMarkLabel = `${exam.passMarkPercent}%`;
+  }
 
-  el('readiness-card').innerHTML = `
-    <h2 class="card-title">Readiness</h2>
-    <div class="readiness-grid">
+  // Stat cells differ by scoring model
+  const estimateCell = `
+    <div class="readiness-stat">
+      <span class="stat-label">Cold-water estimate</span>
+      <span class="stat-value ${estimate !== null && estimate !== undefined ? '' : 'muted'}">
+        ${estimate !== null && estimate !== undefined ? estimate + '%' : '—'}
+      </span>
+    </div>
+  `;
+
+  let statsHtml;
+  if (scoringModel === 'pass_fail_unknown') {
+    statsHtml = estimateCell + `
       <div class="readiness-stat">
-        <span class="stat-label">Cold-water estimate</span>
-        <span class="stat-value ${estimate !== null ? '' : 'muted'}">
-          ${estimate !== null ? estimate + '%' : '—'}
-        </span>
+        <span class="stat-label">Readiness band</span>
+        <span class="stat-value ${band ? '' : 'muted'}">${band || '—'}</span>
       </div>
       <div class="readiness-stat">
-        <span class="stat-label">Margin over pass mark (${exam.passMarkPercent}%)</span>
+        <span class="stat-label">Pass mark</span>
+        <span class="stat-value muted">${passMarkLabel}</span>
+      </div>
+    `;
+  } else {
+    const probPct   = (prob !== null && prob !== undefined) ? Math.round(prob * 100) : null;
+    const marginCls = (margin === null || margin === undefined) ? 'muted' : margin >= 0 ? 'good' : 'bad';
+
+    statsHtml = estimateCell + `
+      <div class="readiness-stat">
+        <span class="stat-label">Margin over pass mark (${passMarkLabel})</span>
         <span class="stat-value ${marginCls}">
-          ${margin !== null ? signed(margin) + '%' : '—'}
+          ${(margin !== null && margin !== undefined) ? signed(margin) + '%' : '—'}
         </span>
       </div>
       <div class="readiness-stat">
         <span class="stat-label">
           Rough pass probability
-          <span class="formula-note">(±${stdDev}% exam-day noise)</span>
+          <span class="formula-note">(±${stdDev}% noise, ${n >= 5 ? `from ${n} quizzes` : 'prior'})</span>
         </span>
         <span class="stat-value ${probClass(prob)}">
           ${probPct !== null ? probPct + '%' : '—'}
         </span>
       </div>
-    </div>
+    `;
+  }
+
+  // Bias transparency line — shown only when meaningful
+  let biasNote = '';
+  if (n >= 5 && rawEstimate !== null && rawEstimate !== undefined && Math.abs(bias) >= 0.5) {
+    const direction = bias > 0 ? 'underconfident' : 'overconfident';
+    biasNote = ` <span class="formula-note">Raw cold-water ${rawEstimate}%; debiased by ${signed(bias)}% (${direction} over ${n} quizzes).</span>`;
+  } else if (n > 0 && n < 5) {
+    biasNote = ` <span class="formula-note">${5 - n} more calibration ${5 - n === 1 ? 'point' : 'points'} until bias correction kicks in.</span>`;
+  }
+
+  el('readiness-card').innerHTML = `
+    <h2 class="card-title">Readiness</h2>
+    <div class="readiness-grid">${statsHtml}</div>
     ${readiness.summary
-      ? `<p class="readiness-summary">${readiness.summary}</p>`
-      : `<p class="readiness-summary muted">No readiness estimate yet. The coach updates this after each phase exam.</p>`
+      ? `<p class="readiness-summary">${readiness.summary}${biasNote}</p>`
+      : `<p class="readiness-summary muted">No readiness estimate yet. The coach updates this after each phase exam.${biasNote}</p>`
     }
   `;
 }

@@ -43,6 +43,10 @@ Requires Node.js ≥ 18 (for the dashboard build script).
 7. **Case reasoning vs recall** — does the exam test integrated case reasoning, or is it primarily recall?
    - If integrated: do sources list named scenarios, or should pools be declared?
    - If recall: the case-practice phase is skipped
+7a. **Scoring & question format** (optional — answer `"default"` if these match a typical 4-option / single-correct / fixed-percent exam):
+   - **Scoring model:** fixed-percent (default), scaled (e.g., 720 of 1000 — provide the scale range), or pass-fail with no published cut.
+   - **Options per question:** 4 (default) or 5.
+   - **Multiple-correct questions:** no (default), or yes — with all-or-nothing or partial credit.
 8. **Total study days available** — integer
 9. **Source materials** — paths/files to drop in, or "I'll add them later"
 10. **License preference** — default MIT
