@@ -342,8 +342,14 @@ function renderCalibrationChart(state) {
 // ─── 6. Domain Coverage ──────────────────────────────────────────────────────
 
 function renderDomainCoverage(state) {
-  const { domains, phases } = state;
+  const { domains, phases, examProfile } = state;
   const section = el('domain-coverage');
+  const blueprintMode = (examProfile && examProfile.blueprint && examProfile.blueprint.mode) || 'weighted';
+
+  if (blueprintMode === 'none') {
+    section.innerHTML = '<h2 class="card-title">Domain Coverage</h2><p class="muted">No blueprint declared. Domains and topics will emerge from the diagnostic and the first sessions; this card will populate then.</p>';
+    return;
+  }
 
   if (!domains || domains.length === 0) {
     section.innerHTML = '<h2 class="card-title">Domain Coverage</h2><p class="muted">No domains configured. Run /init-coach.</p>';
@@ -370,7 +376,11 @@ function renderDomainCoverage(state) {
     return { domain, coveragePct: pct(complete, domainDays.length), complete, total: domainDays.length };
   });
 
-  let html = '<h2 class="card-title">Domain Coverage <span class="subtitle">(weighted by exam blueprint)</span></h2>';
+  const subtitleText = blueprintMode === 'weighted'
+    ? '(weighted by exam blueprint)'
+    : '(equal weight per domain)';
+
+  let html = `<h2 class="card-title">Domain Coverage <span class="subtitle">${subtitleText}</span></h2>`;
   html += '<div class="domain-bars">';
 
   coverage.forEach(({ domain, coveragePct, complete, total }) => {
@@ -379,11 +389,15 @@ function renderDomainCoverage(state) {
       ? `${coveragePct}% <span class="muted">(${complete}/${total} days)</span>`
       : '<span class="muted">—</span>';
 
+    const weightChipHtml = blueprintMode === 'weighted'
+      ? `<span class="domain-weight">${domain.weight}%</span>`
+      : '';
+
     html += `
       <div class="domain-bar-row">
         <div class="domain-label" title="${domain.name}">
           ${domain.name}
-          <span class="domain-weight">${domain.weight}%</span>
+          ${weightChipHtml}
         </div>
         <div class="domain-bar-track">
           <div class="domain-bar-fill" style="width: ${fillWidth}%"></div>

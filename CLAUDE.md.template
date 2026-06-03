@@ -89,6 +89,13 @@ Reference this rule explicitly when answering knowledge questions that could hav
 - Final phase is simulation and drill
 - Last 3 days of the plan are reserved for the endgame protocol (`docs/ENDGAME.md`)
 
+**Front-loading basis — depends on `examProfile.blueprint.mode` in `data/state.json`:**
+- `weighted` — domains were ordered by declared weight at init time. The diagnostic may swap which phase a weak domain lands in, but day counts stay proportional to declared weights.
+- `unweighted` — equal day allocation per domain. The diagnostic re-orders domains by score ascending (weakest first), then re-splits across phases. Day counts stay equal.
+- `none` — initially flat (no domain breakdown). The diagnostic populates `domains[]`; from that point on, the course follows the `unweighted` rebalancing rule. When you populate `domains[]` from session/diagnostic output, flip `blueprint.mode` to `"unweighted"` so the dashboard renders correctly.
+
+Whenever the diagnostic runs (or you discover new domain structure mid-prep), update `domains[]` and `phases[].days[].topics` in `state.json` to reflect the new allocation. The hook will rebuild the dashboard.
+
 ---
 
 ## Daily Session Format

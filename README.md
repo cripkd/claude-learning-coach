@@ -9,7 +9,8 @@ A Claude Code-powered study coach for scenario-based multiple-choice certificati
 What this template targets today, what's planned, and what it isn't trying to do.
 
 **Supported now**
-- Scenario-based multiple-choice certification exams with tiered textual sources (primary / secondary / tertiary) and a published, weighted domain blueprint — e.g., the cert exams published by AWS, Azure, GCP, Anthropic, and similar vendors.
+- Scenario-based multiple-choice certification exams with tiered textual sources (primary / secondary / tertiary).
+- Blueprint variants: **weighted** (e.g., AWS / Azure / GCP / Anthropic cert exams with published per-domain weights), **unweighted** (domains listed without weights — equal allocation), and **no blueprint** (domains emerge from the diagnostic and early sessions).
 
 **Not yet (roadmap)**
 - Broader MCQ varieties: recall-heavy question mixes, scaled scores, multiple-correct answers.

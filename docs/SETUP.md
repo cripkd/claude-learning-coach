@@ -36,7 +36,10 @@ Requires Node.js ≥ 18 (for the dashboard build script).
 3. **Your name** — optional; used for the coach's tone (defaults to "the student")
 4. **Your background** — 1–3 sentences: role, prior experience, known gaps
 5. **How you learn best** — scenarios/hands-on, lecture-style, drilling, mixed
-6. **Exam domains** — list with weights if known (e.g., "D1: 30%, D2: 22%, ...")
+6. **Exam domains** — three ways to answer:
+   - **With weights** (e.g., "D1: 30%, D2: 22%, ...") → phase plan front-loads by weight.
+   - **Without weights** → phase plan allocates days equally; the diagnostic re-orders so weak domains come first.
+   - **No published blueprint** (say "no blueprint" or "I don't know") → plan starts flat. The diagnostic and early sessions populate domains as topics surface; from then on the course behaves as unweighted.
 7. **Case reasoning vs recall** — does the exam test integrated case reasoning, or is it primarily recall?
    - If integrated: do sources list named scenarios, or should pools be declared?
    - If recall: the case-practice phase is skipped

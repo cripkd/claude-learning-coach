@@ -54,12 +54,17 @@ Store: `STUDENT_BACKGROUND`.
 
 Store: `LEARNING_STYLE`.
 
-### Q6 — Domains
-> What domains or topic areas does this exam cover? List them with their weights if you know them.
-> Example: "D1: Security — 30%, D2: Reliability — 26%, D3: Cost — 20%, D4: Performance — 14%, D5: Operational — 10%"
-> If you don't know the weights, just list the domains and I'll distribute evenly.
+### Q6 — Domains and blueprint
+> What domains or topic areas does this exam cover? Three ways to answer:
+> - **With weights** — `"D1: Security — 30%, D2: Reliability — 26%, D3: Cost — 20%, D4: Performance — 14%, D5: Operational — 10%"`. The phase plan front-loads by weight, then is re-ordered by the diagnostic.
+> - **Without weights** — just list the domains. The plan allocates days equally and is ordered (initially) in your listed order, then re-ordered by the diagnostic to put weaker domains first.
+> - **No published blueprint** — say `"no blueprint"` or `"I don't know"`. The plan starts flat (no domain breakdown); domains and topics emerge from the diagnostic and early sessions.
 
-Store: `DOMAINS[]` — array of `{id, name, weight}`. If weights aren't provided, distribute evenly (100 / n, rounded). If weights don't sum to 100%, warn: "Your domain weights sum to X%, not 100%. I'll proceed — the phase plan will still work, but double-check the official exam blueprint."
+Store: `BLUEPRINT_MODE`, `DOMAINS[]`.
+
+- If the student provided weights → `BLUEPRINT_MODE = "weighted"`. `DOMAINS[]` keeps the declared weights. If weights don't sum to 100%, warn: "Your domain weights sum to X%, not 100%. I'll proceed — the phase plan will still work, but double-check the official exam blueprint."
+- If the student listed domains without weights → `BLUEPRINT_MODE = "unweighted"`. `DOMAINS[]` assigns each domain `weight = round(100 / n)` (equal weight).
+- If the student said "no blueprint" or equivalent → `BLUEPRINT_MODE = "none"`. `DOMAINS[] = []`. The phase plan is generic; the diagnostic and the first few sessions will populate domains as topics surface, after which the course behaves like `unweighted`.
 
 ### Q7 — Case mode
 > Does this exam test integrated case reasoning (scenario-based questions that require applying multiple concepts together), or is it primarily recall-based (definitions, formulas, direct knowledge retrieval)?
@@ -128,12 +133,12 @@ All output files for this course (CLAUDE.md, memory.md, progress.md, state.json,
 
 ## Step 3: Generate the phase plan
 
-Use the collected answers to construct a structured phase plan. Apply this algorithm:
+Use the collected answers to construct a structured phase plan. The base 4-phase shape and day-count formulas are the same across blueprint modes; what changes is the **domain assignment** and **day-allocation** rules inside Phases 1 and 2.
 
 **Working days** = `TOTAL_DAYS − 3` (last 3 days are always reserved for the endgame protocol in `docs/ENDGAME.md`)
 
 **If TOTAL_DAYS < 10:** use a 2-phase compressed plan:
-- Phase 1: `floor(workingDays * 0.6)` days — all domains, front-loaded by weight
+- Phase 1: `floor(workingDays * 0.6)` days — content (per blueprint-mode rule below)
 - Phase 2: `workingDays − Phase1days` days — simulation and drill
 - No dedicated case-practice phase; no diagnostic day built in
 - Still reserve day 1 for orientation and diagnostic
@@ -147,20 +152,40 @@ Calculate phase day counts from `workingDays`:
 | Phase 4 | Simulation & Drill (or Final Drill if recall) | `max(3, ceil(workingDays × 0.15))` | Last phase before endgame |
 | Phase 3 | Case Practice (or Extended Drill if recall) | `max(3, ceil(workingDays × 0.20))` | Skip case label if recall |
 | Phase 1+2 content | — | `workingDays − P3days − P4days` | Split between Phase 1 and Phase 2 |
-| Phase 1 | Core Domains | `ceil(contentDays × 0.55)` | Highest-weight domains |
-| Phase 2 | Remaining Domains | `contentDays − P1days` | Remaining domains |
+| Phase 1 | Core Domains | `ceil(contentDays × 0.55)` | See blueprint-mode rule below |
+| Phase 2 | Remaining Domains | `contentDays − P1days` | See blueprint-mode rule below |
 
-**Domain assignment to phases:**
-- Sort domains by weight descending
-- Phase 1 covers the top domains by weight until their cumulative weight ≥ 55% of total weight (or top half if weights are equal)
-- Phase 2 covers the remaining domains
-- If only 1–2 domains exist: Phase 1 covers all domains with more depth; Phase 2 focuses on integration
+**Domain assignment and day allocation — branch on `BLUEPRINT_MODE`:**
 
-**Day allocation within Phase 1 and Phase 2:**
-- Distribute days among the phase's domains proportionally to their declared weights
-- Minimum 1 day per domain
-- Each phase ends with 1 phase-exam day (included in the phase day count, not additional)
-- If a domain has multiple task statements, spread them across multiple days (1–2 task statements per day)
+**`weighted`** (current behavior — CCA-shaped exams with a published weighted blueprint):
+- Sort domains by weight descending.
+- Phase 1 covers the top domains by weight until their cumulative weight ≥ 55% of total weight (or top half if weights are equal).
+- Phase 2 covers the remaining domains.
+- Distribute days inside each phase **proportionally to declared weights**, minimum 1 day per domain.
+- Phase titles use the names of the dominant domain(s) covered.
+
+**`unweighted`** (domains listed but no published weights):
+- Keep domains in declared order.
+- Phase 1 covers the first `ceil(n/2)` domains; Phase 2 covers the rest.
+- Distribute days inside each phase **equally** across that phase's domains, minimum 1 day per domain.
+- Phase titles use the names of the domains covered (e.g., "Phase 1: D1 + D2 + D3").
+- The diagnostic will re-order domains so the weakest are front-loaded — see "Post-diagnostic rebalancing" below.
+
+**`none`** (no published blueprint — domains and topics emerge later):
+- `DOMAINS[]` is empty. No per-domain front-loading.
+- Phase 1 = "Foundations" (broad coverage). Phase 2 = "Building". Phase 3/4 unchanged.
+- Days inside Phase 1 and Phase 2 carry generic placeholders (`topics: []`, `notes: "TBD by diagnostic and early sessions"`).
+- The diagnostic creates the initial domain/topic structure; the coach populates `domains[]` and `days[].topics` during the first sessions. After the diagnostic, the course behaves as `unweighted`.
+
+**Shared (all modes):**
+- Each phase ends with 1 phase-exam day (included in the phase day count, not additional).
+- If a domain has multiple task statements, spread them across multiple days (1–2 task statements per day).
+- The 1–2 domain edge case still applies for `weighted` and `unweighted`: if only 1–2 domains exist, Phase 1 covers all domains with more depth and Phase 2 focuses on integration.
+
+**Post-diagnostic rebalancing (referenced here, executed by the coach after the diagnostic runs):**
+- `weighted`: the diagnostic may swap which phase a weak domain lands in, but day counts stay proportional to declared weights.
+- `unweighted`: the diagnostic re-orders domains by score ascending (weakest first), then re-splits across phases. Day counts stay equal.
+- `none`: the diagnostic populates `domains[]`; after it does, the course follows the `unweighted` rebalancing rule.
 
 **Phase titles:**
 - Phase 1: use the name of the primary domain(s) covered, e.g., "Phase 1: Core Architecture & Security"
@@ -274,7 +299,7 @@ exam.caseMode: CASE_MODE
 examProfile:
   profile: "mcq"
   scenarioRecallRatio: 1.0 if CASE_MODE in ("exam-defined","pool-derived"); 0.0 if CASE_MODE == "recall"
-  blueprint: { mode: "weighted" }
+  blueprint: { mode: BLUEPRINT_MODE }   # "weighted" | "unweighted" | "none" (from Q6)
   scoring: { model: "fixed_percent", scaleMin: null, scaleMax: null }
   questionFormat: { optionCount: 4, multipleCorrect: false, partialCredit: "all_or_nothing" }
   adaptive: false
@@ -287,10 +312,13 @@ plan.startDate: today's date
 plan.currentDay: 1
 plan.daysRemainingUntilExam: days between today and EXAM_DATE (null if ongoing)
 
-domains[]: one entry per domain from Q6
+domains[]: one entry per domain from Q6 (empty array if BLUEPRINT_MODE = "none")
   id: "D1", "D2", ...
   name: domain name
-  weight: declared weight
+  weight:
+    - weighted   → declared weight (as given in Q6)
+    - unweighted → round(100 / n) where n = number of domains (equal across domains)
+    - none       → N/A; domains[] is empty until the diagnostic populates it
   taskStatements: [] (empty for now; student fills in or coach populates during sessions)
 
 phases[]: one entry per phase from Step 2
@@ -428,9 +456,18 @@ Apply these rules silently (without asking again) when generating the plan:
 - Use the 2-phase compressed plan described in Step 2
 - Warn in the summary: "Compressed schedule — no dedicated case-practice phase. The endgame playbook (docs/ENDGAME.md) still applies for the last 3 days."
 
-**Domain weights don't sum to 100%:**
+**Domain weights don't sum to 100% (weighted mode only):**
 - Proceed with the declared weights (proportional allocation still works)
 - Note in the summary: "Domain weights sum to [X]% — phase allocation is proportional to declared weights. Update data/state.json if you get the official breakdown."
+
+**Unweighted blueprint:**
+- Set `examProfile.blueprint.mode = "unweighted"` and assign each domain `weight = round(100/n)`.
+- Note in the summary: "No published weights — domains get equal allocation (`round(100/n)%` each). The diagnostic will re-order the phase plan to front-load your weakest domains."
+
+**No blueprint declared:**
+- Set `examProfile.blueprint.mode = "none"` and `domains[] = []`.
+- Use the flat-plan variant in Step 3 (Phase 1 "Foundations", Phase 2 "Building"); leave each day's `topics: []` and `notes: "TBD by diagnostic and early sessions"`.
+- Note in the summary: "No blueprint declared — domains and topics emerge from the diagnostic and the first few sessions. Once `domains[]` is populated, the course will rebalance like an unweighted blueprint."
 
 **No source materials yet:**
 - Leave `sources/` empty; leave `SOURCES.md` with only the format instructions
