@@ -1,6 +1,25 @@
 # Exam Coach Template
 
-A Claude Code-powered structured-learning coach for cert prep, board exams, language learning, or any deadline-driven knowledge acquisition. Clone it, run one slash command, answer 10 questions — you have a personalized study coach that maintains memory across sessions, tracks progress, runs quizzes, and calibrates against your exam date.
+A Claude Code-powered study coach for scenario-based multiple-choice certification exams — the kind with a published, weighted domain blueprint (AWS, Azure, GCP, Anthropic, and similar vendors). Clone it, run one slash command, answer 10 questions — you have a personalized study coach that maintains memory across sessions, tracks progress, runs scenario-MCQ quizzes, and calibrates against your exam date.
+
+---
+
+## Scope
+
+What this template targets today, what's planned, and what it isn't trying to do.
+
+**Supported now**
+- Scenario-based multiple-choice certification exams with tiered textual sources (primary / secondary / tertiary) and a published, weighted domain blueprint — e.g., the cert exams published by AWS, Azure, GCP, Anthropic, and similar vendors.
+
+**Not yet (roadmap)**
+- Broader MCQ varieties: recall-heavy question mixes, scaled scores, multiple-correct answers.
+- Question-bank import.
+- Sparse-source handling (when authoritative sources are partial or missing).
+
+**Out of scope**
+- Non-MCQ formats: free-response, performance / lab, oral, coding exercises.
+- Adaptive / computerized-adaptive (CAT) exams.
+- Language learning and other skills-based / "any deadline-driven knowledge acquisition" use cases.
 
 ---
 
@@ -161,8 +180,9 @@ v1 — passive source ingestion, exam-defined or pool-derived case patterns, MIT
 
 ## Roadmap
 
-- v2: active source parsing, auto-generated domain maps, source coverage validation against exam blueprint
-- v3: Claude Code plugin packaging (if community adoption warrants)
+- v2: MCQ parameterization — broader scenario-MCQ varieties (recall-heavy mixes, scaled scores, multiple-correct), question-bank import, sparse-source handling
+- v3: active source parsing, auto-generated domain maps, source coverage validation against exam blueprint
+- v4: Claude Code plugin packaging (if community adoption warrants)
 
 ## License
 

@@ -1,6 +1,6 @@
 # Setup Guide — Customizing the Template for a New Topic
 
-> This guide explains how to go from a freshly cloned repo to a running study coach for your specific exam or learning goal.
+> This guide explains how to go from a freshly cloned repo to a running study coach for your specific scenario-MCQ certification exam.
 
 ---
 
