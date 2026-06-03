@@ -13,14 +13,16 @@
 # ── Internal design notes (not user-facing) ──────────────────
 learning-coach-design-doc.md
 
-# ── Course workspaces (personal study data) ──────────────────
+# ── Course & project workspaces (personal study/build data) ──
 # courses/ contains session logs, quiz records, source materials,
-# and progress data. This is private and must not be published
-# to the public template repo.
+# and progress data. projects/ contains long-running personal build
+# workspaces (e.g., MLOps build-along, CIFAR-10 build-along). Both
+# are private and must not be published to the public template repo.
 #
 # Students who want to track their own progress in a private fork
-# can remove this line from their personal copy of .gitignore.
+# can remove these lines from their personal copy of .gitignore.
 courses/
+projects/
 
 # ── Root-level files left over from /init-coach test runs ────
 # These should not exist in the template repo. Delete them with:
