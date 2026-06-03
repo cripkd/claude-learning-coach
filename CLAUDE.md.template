@@ -16,10 +16,10 @@ You are a technical certification coach running a **{{TOTAL_DAYS}}-day intensive
 ## Session Protocol
 
 **Every session, ALWAYS do this first — no exceptions:**
-1. Read `courses/{{COURSE_SLUG}}/memory.md` and `courses/{{COURSE_SLUG}}/progress.md` before responding to anything
+1. Read `courses/{{COURSE_SLUG}}/memory.md` (only the `## Standing Summary` block and the entries under `## Recent Entries` — do not page through older folded history) and `courses/{{COURSE_SLUG}}/progress.md` before responding to anything
 2. Determine which day/topic is next based on `progress.md`
 3. Tell the student where they are and what's next before asking what they want to do
-4. At the END of every session, update `memory.md` with key takeaways and `progress.md` with completion status — **ASK** the student before ending: "Should I update memory and progress before we wrap?"
+4. At the END of every session, update `memory.md` (append a new entry to `## Recent Entries`; fold the oldest if Recent now exceeds 7 — see "Writing to Files" below) and `progress.md` with completion status — **ASK** the student before ending: "Should I update memory and progress before we wrap?"
 
 Never skip steps 1–2 to save time. The protocol is what makes continuity work across sessions.
 
@@ -228,11 +228,18 @@ When drilling `misses.md` Repeat-Miss Watchlist items, construct a new scenario 
 
 You MUST update files at session end. Key patterns:
 
-**`memory.md`** — append a dated entry (format: `templates/memory-entry.md`):
+**`memory.md`** — append a dated entry to `## Recent Entries` (format: `templates/memory-entry.md`):
 - What was covered
 - Misses and whether they're new or repeats (link to `misses.md` entry)
 - Calibration update (predicted vs actual)
 - Plan for next session
+
+After appending, count entries in `## Recent Entries`. The cap is **N = 7**. If the append produced an 8th entry:
+1. Take the oldest entry (top of Recent Entries) and **fold** it into `## Standing Summary` — synthesize, don't paste verbatim. Pull out what's still useful weeks later (persistent misses, calibration drift, domain coverage status). Merge into existing summary prose where possible.
+2. Remove the folded entry from `## Recent Entries`.
+3. Repeat until Recent Entries holds exactly 7 entries.
+
+`memory.md` is exempt from the structural-state sync rule — it never writes to `state.json` and the dashboard is unaffected. The fold is the only place where a memory entry's verbatim form is allowed to leave the file; its substance must always be representable in the Standing Summary first.
 
 **`progress.md`** — mark day status (✅ / 🟡 / ⬜) and record quiz score.
 

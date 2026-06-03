@@ -112,7 +112,7 @@ All course files live under `courses/{slug}/`. The repo root contains only templ
 |---|---|---|
 | `CLAUDE.md` (root) | Ships with repo | Multi-course dispatcher — static, never overwritten |
 | `courses/{slug}/CLAUDE.md` | `/init-coach` | Course-specific coach behavior and instructions |
-| `courses/{slug}/memory.md` | Coach (you confirm) | Dated session log — continuity across sessions |
+| `courses/{slug}/memory.md` | Coach (you confirm) | Session continuity. Two sections: a rolling **Standing Summary** (synthesized) and **Recent Entries** holding the last 7 dated entries verbatim. Oldest entries are folded into the Summary at session end. |
 | `courses/{slug}/progress.md` | Coach (you confirm) | Phase/day tracker with scores and statuses |
 | `courses/{slug}/cheatsheet.md` | Coach | Forward-looking decision rules, appended per phase |
 | `courses/{slug}/misses.md` | Coach | Retrospective trap index + Repeat-Miss Watchlist |

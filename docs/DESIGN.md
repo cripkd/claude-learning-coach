@@ -93,4 +93,18 @@ The "out-of-source" flag is equally important: it prevents the coach from confab
 
 **Why rebuild on every state change:** The dashboard is a snapshot, not a live view. A `.claude/settings.json` PostToolUse hook runs `scripts/build-dashboard.mjs {slug}` whenever `courses/{slug}/data/state.json` is written — read template → migrate-if-needed → validate against the schema → substitute JSON → write output. The student always sees state matching the latest structural update; the template file stays clean for future builds; invalid state never produces a stale or partial dashboard (the previous `index.html` survives until the next valid write).
 
-**Sync discipline:** Any structural update (mark day complete, record a score, add a miss, update readiness) must update the `.md` file, `data/state.json`, AND `dashboard/index.html` in the same response. Partial updates leave the dashboard stale and create silent state drift. See `CLAUDE.md.template` for the full sync rule.
+**Sync discipline:** `data/state.json` is canonical; the `.md` files are rendered views or human annotations. Any structural update must write `state.json` (and the relevant `.md` view) in the same response. The dashboard rebuild is automatic — the PostToolUse hook handles it after schema validation, so partial dashboards are impossible by construction. See `CLAUDE.md.template` for the full write rule.
+
+---
+
+## 8. Rolling-summary `memory.md`
+
+**The choice:** `memory.md` has two sections — a top **Standing Summary** that synthesizes everything older than the recent window, and a **Recent Entries** section holding the last **N = 7** dated entries verbatim. At session end the coach appends a new entry; if Recent Entries now holds more than 7, the oldest is folded (synthesized) into the Standing Summary and removed from the verbatim list. Session start reads only these two sections, not the file's pre-fold history.
+
+**Rejected alternative:** Unbounded append-only log.
+
+**Why:** The session protocol reads `memory.md` at the start of every session. Over a 30-day sprint, an unbounded log grows monotonically — every session's context (and the cost of reading it) gets larger. The Standing Summary is the bounded artifact a future session actually needs: persistent misses, calibration trajectory, domain coverage status. The verbatim last 7 entries preserve the texture of recent work (specific quiz scores, day-by-day plans) without paying for the texture of weeks-old work.
+
+**Why fold instead of truncate:** Pure truncation drops information silently. Folding requires synthesis — the oldest entry's substance is integrated into the Standing Summary first, then removed from the verbatim list. The rule "no information unique to the dropped entry is lost" is the discipline that makes the cap safe.
+
+**Why memory.md is exempt from the structural-sync rule:** It is narrative, not structured. Nothing in `state.json` is derivable from it; the dashboard does not depend on it. Folding rewrites the Standing Summary section in place — the only place in the project where the coach is allowed to rewrite (rather than append to) a markdown file.

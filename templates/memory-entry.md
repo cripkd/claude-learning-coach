@@ -1,10 +1,38 @@
 # Memory Entry Template
 
-> This file documents the format for dated entries in `memory.md`. The coach appends one entry per session at session end (after student confirmation).
+> This file documents the format of `memory.md` and the rules for appending and folding entries.
+> `memory.md` has a two-section shape: a top **Standing Summary** (rolling synthesis) and a **Recent Entries** section holding the last N entries verbatim. The coach reads only these two sections at session start, never the file's pre-fold history.
 
 ---
 
-## Entry format
+## File shape
+
+```markdown
+# {{EXAM_SHORT_NAME}} Study Log
+
+> [header explaining the shape; see starter-files/memory.md]
+
+---
+
+## Standing Summary
+
+[Rolling synthesized prose / compact bullets covering everything older than the recent window.
+ Rewritten at fold time. Empty until the first fold happens.]
+
+---
+
+## Recent Entries
+
+## Day N — {{DAY_TITLE}} (YYYY-MM-DD)
+[full verbatim entry — format below]
+
+## Day N+1 — ... (YYYY-MM-DD)
+[etc., oldest at the top, newest at the bottom]
+```
+
+---
+
+## Entry format (Recent Entries section)
 
 ```markdown
 ## Day N — {{DAY_TITLE}} (YYYY-MM-DD)
@@ -33,16 +61,33 @@
 
 ---
 
+## Append + fold rule (session end)
+
+The cap on Recent Entries is **N = 7**. Procedure when the coach appends a new entry at session end:
+
+1. Append the new dated entry to the **bottom** of `## Recent Entries`.
+2. Count entries in `## Recent Entries`. If the count is **≤ 7**, stop — no fold needed.
+3. If the count is **8** (or more — recover if a previous fold was skipped):
+   - Take the **oldest** entry (at the top of Recent Entries).
+   - **Fold** it into `## Standing Summary` by synthesizing — never paste the entry verbatim into the summary. Pull out the parts that still matter weeks later: persistent misses, calibration drift, domain coverage status, anything the student or coach will still want to know later. If the Standing Summary already covers a topic, merge into the existing prose rather than duplicating.
+   - **Remove** the folded entry from `## Recent Entries`.
+4. Repeat step 3 until Recent Entries holds exactly 7 entries.
+
+**No silent information loss.** A folded entry's substance must be representable in the Standing Summary. If you can't synthesize something cleanly (e.g., a one-off observation with no lasting relevance), drop it deliberately — never drop something the next session would benefit from knowing.
+
+---
+
 ## Rules
 
 - **One entry per session**, not per day. If the student covered Days 3 and 4 in one session, write one entry covering both.
 - **Dated by session date**, not by study day number (the date is when the session happened).
-- **Append only** — never edit or delete past entries. `memory.md` is an append-only log.
-- **Keep it scannable** — the coach reads this file at the start of every session. Entries should be dense and useful, not narrative. Skip anything that doesn't affect the next session.
+- **Recent Entries is append-only between folds.** Don't edit or delete a Recent entry to "tidy" it — fold it instead.
+- **Standing Summary is rewritten at fold time.** It is the only part of `memory.md` that the coach may rewrite. Treat it as living prose: integrate, deduplicate, sharpen.
+- **Keep it scannable.** The coach reads `memory.md` (both sections) at the start of every session. Entries should be dense and useful, not narrative. Skip anything that doesn't affect future sessions.
 
 ---
 
-## Well-formed example
+## Well-formed Recent Entry example
 
 ```markdown
 ## Day 7 — Cross-Domain Case Patterns (2025-03-14)
@@ -64,4 +109,26 @@ Predicted 75%, actual 70% — overconfident by 5 points. Cold-water estimate: 78
 - Day 8: Cost × microservices case patterns
 - Front-load the scope-qualifier watchlist item — one clean drill rep before starting Day 8 content
 - Check misses.md Watchlist: 3 items now, all worth a quick pass
+```
+
+---
+
+## Well-formed Standing Summary example (after several folds)
+
+```markdown
+## Standing Summary
+
+**Phase progress (folded through Day 14):** Phase 1 closed at 78% blended (phase exam Day 8: 8/10).
+Phase 2 case-practice in flight; Days 9–14 covered all four pool-cross combinations.
+
+**Calibration trajectory:** running mildly overconfident (avg delta -4 across Days 1–14). Cold-water
+estimate stable at 78–82%. The student has stopped padding predictions upward — improvement noted Day 12.
+
+**Persistent traps:**
+- *Scope-qualifier misread* — on Watchlist (3 occurrences through Day 7). Still surfaces on
+  region-vs-account-boundary questions; one clean rep at Day 12 but not yet retired.
+- *Simplest-sufficient-fix rejection* — single occurrence (Day 7); not yet a pattern.
+
+**Domain coverage status:** D1 and D2 fully delivered. D3 half-covered (3 of 6 task statements).
+D4 not started — front-loaded into Phase 3.
 ```

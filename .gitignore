@@ -25,18 +25,18 @@ courses/
 projects/
 
 # ── Root-level files left over from /init-coach test runs ────
-# These should not exist in the template repo. Delete them with:
-#   rm memory.md progress.md cheatsheet.md misses.md cases.md \
-#      SOURCES.md DIAGNOSTIC.md CALIBRATION.md
+# Leading "/" anchors to the repo root only — otherwise these patterns also
+# ignore the templates under starter-files/, which broke the template repo
+# (a fresh clone had no starter files for /init-coach to copy).
 # The root CLAUDE.md is the static dispatcher — it IS committed.
-memory.md
-progress.md
-cheatsheet.md
-misses.md
-cases.md
-SOURCES.md
-DIAGNOSTIC.md
-CALIBRATION.md
+/memory.md
+/progress.md
+/cheatsheet.md
+/misses.md
+/cases.md
+/SOURCES.md
+/DIAGNOSTIC.md
+/CALIBRATION.md
 
 # ── Node (if ever adding a build step — v1 has none) ─────────
 node_modules/
