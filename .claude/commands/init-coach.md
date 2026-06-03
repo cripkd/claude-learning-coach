@@ -264,12 +264,20 @@ Write a fully populated `courses/{COURSE_SLUG}/data/state.json` using the schema
 Key field values:
 
 ```
-schemaVersion: "1.0"
+schemaVersion: "2.0"
 exam.fullName: EXAM_FULL_NAME
 exam.shortName: EXAM_SHORT_NAME
 exam.date: EXAM_DATE (null if "ongoing")
-exam.passMarkPercent: [ask the student if known; default 72 if not provided]
+exam.passMarkPercent: [ask the student if known; default 72 if not provided. Must be ≥ 1 — never write 0.72 (use 72).]
 exam.caseMode: CASE_MODE
+
+examProfile:
+  profile: "mcq"
+  scenarioRecallRatio: 1.0 if CASE_MODE in ("exam-defined","pool-derived"); 0.0 if CASE_MODE == "recall"
+  blueprint: { mode: "weighted" }
+  scoring: { model: "fixed_percent", scaleMin: null, scaleMax: null }
+  questionFormat: { optionCount: 4, multipleCorrect: false, partialCredit: "all_or_nothing" }
+  adaptive: false
 
 student.name: STUDENT_NAME
 student.learningStyle: LEARNING_STYLE
@@ -330,15 +338,23 @@ lastUpdated: today's date + "T00:00:00Z"
 
 **Exam pass mark:** if the student didn't mention it during Q6 and it's a well-known exam, use the known pass mark. If unknown, default to 72 and add a note: "I've defaulted the pass mark to 72% — update `exam.passMarkPercent` in `data/state.json` if you know the actual value."
 
+**`examProfile` is an internal contract** — do not surface it to the student during the interview. It is fully derivable from the interview answers (CASE_MODE drives scenarioRecallRatio; everything else defaults to v1-equivalent values: weighted blueprint, fixed-percent scoring, 4 options, single-correct). Later tasks will branch on these fields; for now they just need to be present so the state validates.
+
 ---
 
-## Step 7: Regenerate `courses/{COURSE_SLUG}/dashboard/index.html`
+## Step 7: Build `courses/{COURSE_SLUG}/dashboard/index.html`
 
-1. Read `templates/dashboard-template.html` (repo root)
-2. Replace `__STATE_PLACEHOLDER__` with the literal contents of `courses/{COURSE_SLUG}/data/state.json`
-3. Write the result to `courses/{COURSE_SLUG}/dashboard/index.html`
+Writing `data/state.json` in Step 6 already triggers the PostToolUse hook in `.claude/settings.json`, which rebuilds the dashboard automatically. If the hook did not run (e.g., dispatcher disabled, or you're running a manual setup outside Claude Code), invoke the build script directly:
+
+```
+node scripts/build-dashboard.mjs {COURSE_SLUG}
+```
+
+The script validates `data/state.json` against `templates/state-schema.json` and refuses to write a partial dashboard on validation failure. If you see a validation error, fix the offending field in `state.json` and re-run.
 
 Confirm to the student: "Dashboard is ready — open `courses/{COURSE_SLUG}/dashboard/index.html` in your browser to view your starting state."
+
+**Prerequisite:** `npm install` has been run at least once in the repo root (installs `ajv` for schema validation). If `node_modules/` is missing, instruct the student to run `npm install` from the repo root before opening the dashboard.
 
 ---
 

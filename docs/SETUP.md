@@ -11,18 +11,21 @@ The intended setup flow is:
 ```
 git clone <this repo> my-exam-prep
 cd my-exam-prep
+npm install       # one-time: installs ajv for dashboard schema validation
 claude            # opens Claude Code in this directory
 /init-coach       # starts the interactive setup interview
 ```
 
 `/init-coach` asks you 10 questions, then:
-- Generates a customized `CLAUDE.md` (replacing `CLAUDE.md.template` placeholders with your answers)
-- Copies all starter files from `starter-files/` to the project root with your placeholders filled in
-- Writes the initial `data/state.json` with your plan structure
-- Renders the first `dashboard/index.html` snapshot
-- Reminds you to drop your source materials into `sources/`
+- Generates a customized `courses/{slug}/CLAUDE.md` (replacing `CLAUDE.md.template` placeholders with your answers)
+- Copies all starter files from `starter-files/` to `courses/{slug}/` with your placeholders filled in
+- Writes the initial `courses/{slug}/data/state.json` (canonical structured state, `schemaVersion: "2.0"`) — which fires the dashboard-build hook
+- The hook runs `scripts/build-dashboard.mjs {slug}` to produce the first `courses/{slug}/dashboard/index.html`
+- Reminds you to drop your source materials into `courses/{slug}/sources/`
 
-After `/init-coach` completes, the repo root contains your working study environment. The `starter-files/` directory is no longer needed for day-to-day use.
+After `/init-coach` completes, `courses/{slug}/` contains your working study environment. The `starter-files/` directory is no longer needed for day-to-day use.
+
+Requires Node.js ≥ 18 (for the dashboard build script).
 
 ---
 
@@ -76,12 +79,13 @@ Run the diagnostic before Day 1. It takes 15–20 minutes and materially changes
 
 If you prefer to customize the template by hand:
 
-1. Copy `CLAUDE.md.template` to `CLAUDE.md` in the project root
-2. Replace all `{{PLACEHOLDERS}}` with your values
-3. Copy files from `starter-files/` to the project root, replacing placeholders as you go
-4. Write your phase plan into the `## Study Plan Structure` section of `CLAUDE.md` and into `progress.md`
-5. Populate `data/state.json` using the schema in `templates/state-schema.json`
-6. Run the dashboard: read `templates/dashboard-template.html`, replace `__STATE_PLACEHOLDER__` with the contents of `data/state.json`, write the result to `dashboard/index.html`
+1. Create the course folder: `mkdir -p courses/{slug}/{data,dashboard,sources,quizzes}`
+2. Copy `CLAUDE.md.template` to `courses/{slug}/CLAUDE.md`, replacing all `{{PLACEHOLDERS}}` with your values
+3. Copy the dashboard assets: `cp dashboard/dashboard.{css,js} courses/{slug}/dashboard/`
+4. Copy files from `starter-files/` to `courses/{slug}/`, replacing placeholders as you go
+5. Write your phase plan into the `## Study Plan Structure` section of `courses/{slug}/CLAUDE.md` and into `courses/{slug}/progress.md`
+6. Populate `courses/{slug}/data/state.json` using the schema in `templates/state-schema.json` (use `schemaVersion: "2.0"` and include the `examProfile` block — see the schema for the default shape)
+7. Build the dashboard: `node scripts/build-dashboard.mjs {slug}` — this validates `state.json` and writes `courses/{slug}/dashboard/index.html`. The script refuses to write on validation failure.
 
 The manual path is more work but useful if you want to pre-populate a phase plan before your first Claude Code session.
 
@@ -117,16 +121,16 @@ All course files live under `courses/{slug}/`. The repo root contains only templ
 | `courses/{slug}/DIAGNOSTIC.md` | Coach | Pre-study diagnostic results |
 | `courses/{slug}/CALIBRATION.md` | Coach | Predicted-vs-actual score tracking |
 | `courses/{slug}/quizzes/day-NN.md` | Coach | Per-day quiz records |
-| `courses/{slug}/data/state.json` | Coach (structural changes) | Machine-readable structural state |
-| `courses/{slug}/dashboard/index.html` | Coach (every structural change) | Static visual dashboard |
+| `courses/{slug}/data/state.json` | Coach (structural changes) | **Canonical** structured state — source of truth for all numeric/structural fields. Schema-validated on every write. |
+| `courses/{slug}/dashboard/index.html` | Hook (automatic) | **Build artifact** — rebuilt by `scripts/build-dashboard.mjs` via a PostToolUse hook on every write to `data/state.json`. Never hand-edited. |
 
 ---
 
 ## Updating the phase plan mid-prep
 
-If your exam date changes, or diagnostic results suggest major rebalancing, re-run `/init-coach` and choose "reconfigure specific fields." It will regenerate `data/state.json` and `dashboard/index.html` to reflect the new config without wiping your existing progress data.
+If your exam date changes, or diagnostic results suggest major rebalancing, re-run `/init-coach` and choose "reconfigure specific fields." It rewrites `courses/{slug}/data/state.json` to reflect the new config without wiping your existing progress data — the dashboard is rebuilt automatically by the hook.
 
-For minor adjustments (swap two days, extend a phase by one day), edit `progress.md` and `data/state.json` directly, then tell the coach to regenerate the dashboard.
+For minor adjustments (swap two days, extend a phase by one day), edit `courses/{slug}/progress.md` and `courses/{slug}/data/state.json` directly. Writing `state.json` fires the hook and the dashboard rebuilds; if you skipped Claude Code and edited the file by hand, run `node scripts/build-dashboard.mjs {slug}` to rebuild manually.
 
 ---
 

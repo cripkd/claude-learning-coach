@@ -91,6 +91,6 @@ The "out-of-source" flag is equally important: it prevents the coach from confab
 
 **Why inline JSON instead of `fetch('data/state.json')`:** `file://` URLs block `fetch` due to browser CORS policy. Inlining the JSON inside a `<script type="application/json">` block lets the student double-click the HTML file and view the dashboard with zero server setup.
 
-**Why regenerate on every state change:** The dashboard is a snapshot, not a live view. Regenerating it explicitly (read template → substitute JSON → write output) means the student always sees state that matches the latest structural update, and the template file stays clean for future regenerations.
+**Why rebuild on every state change:** The dashboard is a snapshot, not a live view. A `.claude/settings.json` PostToolUse hook runs `scripts/build-dashboard.mjs {slug}` whenever `courses/{slug}/data/state.json` is written — read template → migrate-if-needed → validate against the schema → substitute JSON → write output. The student always sees state matching the latest structural update; the template file stays clean for future builds; invalid state never produces a stale or partial dashboard (the previous `index.html` survives until the next valid write).
 
 **Sync discipline:** Any structural update (mark day complete, record a score, add a miss, update readiness) must update the `.md` file, `data/state.json`, AND `dashboard/index.html` in the same response. Partial updates leave the dashboard stale and create silent state drift. See `CLAUDE.md.template` for the full sync rule.

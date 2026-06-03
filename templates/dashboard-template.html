@@ -45,9 +45,10 @@
 
   <!--
     STATE INJECTION BLOCK
-    Claude replaces __STATE_PLACEHOLDER__ with the literal contents of data/state.json
-    on every dashboard regeneration. Do not edit the placeholder or the script tag manually.
-    Regeneration: read this file → replace __STATE_PLACEHOLDER__ → write to dashboard/index.html
+    The body of this script tag is replaced on every build by scripts/build-dashboard.mjs
+    with the contents of courses/{slug}/data/state.json. Do not edit this block by hand —
+    it is overwritten on the next state.json write (the .claude PostToolUse hook rebuilds
+    automatically). The script tag's id="state" is read by dashboard.js and must stay verbatim.
   -->
   <script type="application/json" id="state">
 __STATE_PLACEHOLDER__

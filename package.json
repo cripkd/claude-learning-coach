@@ -1,0 +1,17 @@
+{
+  "name": "exam-coach-template",
+  "version": "2.0.0",
+  "description": "Claude Code-powered study coach for scenario-based multiple-choice certification exams. Build tooling for the dashboard artifact.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build-dashboard.mjs",
+    "validate": "node scripts/build-dashboard.mjs --validate"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  }
+}

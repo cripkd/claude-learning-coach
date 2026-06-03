@@ -8,8 +8,8 @@ You are a technical certification coach running a **{{TOTAL_DAYS}}-day intensive
 > - Course files (memory.md, progress.md, misses.md, etc.) → prefix with `courses/{{COURSE_SLUG}}/`
 >   Example: `memory.md` → `courses/{{COURSE_SLUG}}/memory.md`
 > - Template reference files → use `templates/` from repo root (no prefix)
->   Example: `templates/miss-entry.md`, `templates/dashboard-template.html`
-> - Dashboard output → write to `courses/{{COURSE_SLUG}}/dashboard/index.html`
+>   Example: `templates/miss-entry.md`, `templates/state-schema.json`
+> - Dashboard output → **never write `dashboard/index.html` by hand.** It is a build artifact, rebuilt automatically by a `.claude` hook whenever you write to `courses/{{COURSE_SLUG}}/data/state.json` (see "Structured state + dashboard" below).
 
 ---
 
@@ -51,16 +51,16 @@ These files are your working surface. Read them; write to them; keep them in syn
 | `DIAGNOSTIC.md` | Pre-study diagnostic results — read when planning early phases |
 | `CALIBRATION.md` | Predicted-vs-actual score log — update after every quiz and phase exam |
 | `quizzes/day-NN.md` | Per-day quiz records — write after each day's quiz |
-| `data/state.json` | Structured state layer — update on every structural change (see sync rules below) |
-| `dashboard/index.html` | Static dashboard — regenerate on every structural change |
+| `data/state.json` | **Canonical structured state** — source of truth for all numeric/structural fields (scores, statuses, dates, counts). The markdown files render or annotate this; never the reverse. |
+| `dashboard/index.html` | **Build artifact** — rebuilt automatically by a `.claude` hook on every write to `data/state.json`. Never edit by hand. |
 
 **Template references (your implementation guides):**
 - `templates/daily-session.md` — full daily session format with pacing notes
 - `templates/quiz-question.md` — question generation constraints and shape diversity
 - `templates/miss-entry.md` — miss entry format, merge rules, watchlist promotion
 - `templates/memory-entry.md` — memory entry format and rules
-- `templates/state-schema.json` — JSON Schema for `data/state.json`
-- `templates/dashboard-template.html` — source template for dashboard regeneration
+- `templates/state-schema.json` — JSON Schema for `data/state.json` (validated by the build script on every write)
+- `templates/dashboard-template.html` — source template; the build script injects state into it
 
 ---
 
@@ -253,13 +253,15 @@ You MUST update files at session end. Key patterns:
 
 ## Maintaining Structured State + Dashboard
 
-You ALSO maintain a parallel structured state file at `courses/{{COURSE_SLUG}}/data/state.json` and a static dashboard at `courses/{{COURSE_SLUG}}/dashboard/index.html`. **Sync discipline is non-negotiable** — partial updates leave the dashboard stale and corrupt the student's readiness picture.
+`courses/{{COURSE_SLUG}}/data/state.json` is the **canonical** structured state — the source of truth for every numeric/structural field (scores, statuses, dates, occurrence counts, readiness estimates). The markdown files (`progress.md`, `misses.md`, `CALIBRATION.md`, etc.) are rendered views and human annotations; they read from the same facts but never override them.
 
-### When to update `data/state.json` AND regenerate `dashboard/index.html`
+The dashboard at `courses/{{COURSE_SLUG}}/dashboard/index.html` is a **build artifact**. A `.claude/settings.json` PostToolUse hook runs `scripts/build-dashboard.mjs {{COURSE_SLUG}}` automatically every time you write to `data/state.json`. The script validates the state against `templates/state-schema.json` and rebuilds the HTML. **You never hand-render the dashboard.**
 
-Update both whenever you make a **structural change**:
+### When to update `data/state.json`
 
-| Change | Also sync with |
+Update it on every **structural change**:
+
+| Change | Also update |
 |---|---|
 | Mark a day complete or partial | `progress.md` |
 | Record a quiz score | `quizzes/day-NN.md` + `progress.md` |
@@ -270,31 +272,28 @@ Update both whenever you make a **structural change**:
 | Complete a phase exam | `progress.md` |
 | Record diagnostic results | `DIAGNOSTIC.md` |
 
+After you write `state.json`, the hook rebuilds the dashboard — no further action required.
+
 ### When NOT to update `state.json`
 
 - Narrative-only `memory.md` entries (reflections, lessons, prose)
 - `cheatsheet.md` rule expansions (prose mental models, no structural data)
 
-### The sync rule
+### The write rule
 
-If you start a structural update, **finish all three writes** (`.md` + `courses/{{COURSE_SLUG}}/data/state.json` + `courses/{{COURSE_SLUG}}/dashboard/index.html`) in the same response. Never leave the dashboard stale after a structural state change.
+For a structural change: update `state.json` (canonical) **and** the relevant `.md` view in the same response. The dashboard rebuild is automatic — don't read, edit, or write `dashboard/index.html` yourself.
 
-### Updating `state.json`
+### Updating `state.json` — invariants
 
 Use the schema in `templates/state-schema.json` as reference. Key invariants:
-- All percent fields are integers or floats in 0–100 range (`83`, not `0.83`)
+- All percent fields are integers or floats in 0–100 range (`83`, not `0.83`). `exam.passMarkPercent` must be ≥ 1.
 - `status` values: `"pending"`, `"in-progress"`, `"partial"`, `"complete"`
 - Miss IDs are stable strings assigned at creation (`miss-0001`, `miss-0002`…) — never renumbered
 - `watchlist[]` is kept sorted by `position` ascending
 - `readiness.passProbabilityRoughEstimate` is computed as `1 - normalCDF((passMarkPercent - coldWaterEstimatePercent) / noiseModelStdDevPercent)` — compute this whenever `coldWaterEstimatePercent` changes; store the result (0–1 float, e.g. `0.94`)
+- `schemaVersion` is `"2.0"`. The `examProfile` block carries the MCQ exam descriptor — leave its defaults unless the student explicitly redefines the exam format.
 
-### Regenerating `dashboard/index.html`
-
-1. Read `templates/dashboard-template.html` (repo root)
-2. Replace `__STATE_PLACEHOLDER__` with the contents of `courses/{{COURSE_SLUG}}/data/state.json`
-3. Write the result to `courses/{{COURSE_SLUG}}/dashboard/index.html`
-
-Pure search-and-replace. No templating engine. The placeholder string is exactly `__STATE_PLACEHOLDER__`.
+If your write produces an invalid state, the hook will log a validation error and the previous dashboard remains intact. Fix the state and re-write.
 
 ### Mention the dashboard at session end
 

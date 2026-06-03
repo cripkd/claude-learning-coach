@@ -1,17 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "exam-coach-state-schema-v1",
+  "$id": "exam-coach-state-schema-v2",
   "title": "Exam Coach State",
-  "description": "JSON Schema for data/state.json — the structured state layer maintained by Claude alongside the markdown files.",
+  "description": "JSON Schema for data/state.json — the canonical structured state. The markdown files are rendered views/human annotations; this JSON is the source of truth. The dashboard is a deterministic build artifact derived from this file (see scripts/build-dashboard.mjs).",
   "type": "object",
-  "required": ["schemaVersion", "exam", "student", "plan", "domains", "phases", "calibration", "misses", "watchlist", "sources", "diagnostic", "readiness", "lastUpdated"],
+  "required": ["schemaVersion", "exam", "examProfile", "student", "plan", "domains", "phases", "calibration", "misses", "watchlist", "sources", "diagnostic", "readiness", "lastUpdated"],
   "additionalProperties": false,
   "properties": {
 
     "schemaVersion": {
       "type": "string",
-      "description": "Schema version. Increment on breaking changes.",
-      "example": "1.0"
+      "description": "Schema version. Increment on breaking changes. Current: '2.0' (adds examProfile).",
+      "example": "2.0"
     },
 
     "exam": {
@@ -22,8 +22,70 @@
         "fullName":       { "type": "string", "description": "Full exam name, e.g. 'AWS Solutions Architect Associate'" },
         "shortName":      { "type": "string", "description": "Short abbreviation, e.g. 'SAA-C03'" },
         "date":           { "type": ["string", "null"], "description": "Exam date in YYYY-MM-DD, or null if ongoing" },
-        "passMarkPercent":{ "type": "number", "minimum": 0, "maximum": 100, "description": "Pass mark as integer percent, e.g. 72" },
-        "caseMode":       { "type": "string", "enum": ["exam-defined", "pool-derived", "recall"], "description": "How case patterns are sourced" }
+        "passMarkPercent":{ "type": "number", "minimum": 1, "maximum": 100, "description": "Pass mark as integer percent, e.g. 72 (not 0.72 — percent fields are 0–100, never 0–1). Interpretation depends on examProfile.scoring.model." },
+        "caseMode":       { "type": "string", "enum": ["exam-defined", "pool-derived", "recall"], "description": "How case patterns are sourced. Orthogonal to examProfile.scenarioRecallRatio (case sourcing axis, not scenario-vs-recall mix)." }
+      }
+    },
+
+    "examProfile": {
+      "type": "object",
+      "description": "MCQ exam descriptor. Parameterization axes that later tasks branch on. v2.0 defines the contract only — no branching logic is implemented yet. Defaults reproduce v1.x behavior.",
+      "required": ["profile", "scenarioRecallRatio", "blueprint", "scoring", "questionFormat", "adaptive"],
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "const": "mcq",
+          "description": "Exam family. Only 'mcq' is supported in scope (see README Scope section)."
+        },
+        "scenarioRecallRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of questions that are scenario-based vs recall. 1.0 = pure scenarios; 0.0 = pure recall. Generalizes the scenario-vs-recall mix; orthogonal to exam.caseMode (which describes case sourcing when ratio > 0)."
+        },
+        "blueprint": {
+          "type": "object",
+          "description": "How domains[].weight is interpreted.",
+          "required": ["mode"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["weighted", "unweighted", "none"],
+              "description": "'weighted' = honor declared weights (v1 default behavior). 'unweighted' = treat all domains equally. 'none' = no domain blueprint structure."
+            }
+          }
+        },
+        "scoring": {
+          "type": "object",
+          "description": "How exam.passMarkPercent is interpreted. Does not duplicate the pass mark — only describes its meaning.",
+          "required": ["model"],
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "type": "string",
+              "enum": ["fixed_percent", "scaled", "pass_fail_unknown"],
+              "description": "'fixed_percent' = raw % cutoff (v1 default). 'scaled' = passMarkPercent is the scaled-score equivalent (scaleMin/scaleMax describe the scale). 'pass_fail_unknown' = pass mark not published."
+            },
+            "scaleMin": { "type": ["number", "null"], "description": "Lower bound of scaled-score range (e.g. 100 for AWS). Only meaningful when model='scaled'." },
+            "scaleMax": { "type": ["number", "null"], "description": "Upper bound of scaled-score range (e.g. 1000 for AWS). Only meaningful when model='scaled'." }
+          }
+        },
+        "questionFormat": {
+          "type": "object",
+          "description": "Per-question shape constraints.",
+          "required": ["optionCount", "multipleCorrect"],
+          "additionalProperties": false,
+          "properties": {
+            "optionCount":     { "type": "integer", "minimum": 2, "default": 4, "description": "Number of answer options per question. Default 4." },
+            "multipleCorrect": { "type": "boolean", "default": false, "description": "True if questions may have multiple correct answers. Default false (single-correct)." },
+            "partialCredit":   { "type": "string", "enum": ["all_or_nothing", "partial"], "description": "Scoring policy when multipleCorrect is true. Default 'all_or_nothing'." }
+          }
+        },
+        "adaptive": {
+          "const": false,
+          "description": "Explicit out-of-scope guard. Adaptive / computerized-adaptive (CAT) exams are out of scope (see README Scope section)."
+        }
       }
     },
 
