@@ -10,8 +10,8 @@
 
     "schemaVersion": {
       "type": "string",
-      "description": "Schema version. Increment on breaking changes. Current: '2.2' (adds missType + confusionPair to misses[]; derives watchlist[] in the build).",
-      "example": "2.2"
+      "description": "Schema version. Increment on breaking changes. Current: '2.3' (adds calibration[].source to distinguish bank vs synthetic quiz origin; readiness math weights bank entries higher).",
+      "example": "2.3"
     },
 
     "exam": {
@@ -186,18 +186,23 @@
 
     "calibration": {
       "type": "array",
-      "description": "Predicted-vs-actual log. One entry per quiz or phase exam.",
+      "description": "Predicted-vs-actual log. One entry per quiz, phase exam, or bank drill. A single quiz that mixes bank + synthetic produces two entries — one per source — so the readiness math can weight them differently.",
       "items": {
         "type": "object",
-        "required": ["date", "label", "predictedPercent", "actualPercent", "delta", "interpretation"],
+        "required": ["date", "label", "predictedPercent", "actualPercent", "delta", "interpretation", "source"],
         "additionalProperties": false,
         "properties": {
           "date":             { "type": "string", "description": "YYYY-MM-DD" },
-          "label":            { "type": "string", "description": "Identifies the quiz/exam, e.g. 'Phase 1 exam' or 'Day 7 quiz'" },
+          "label":            { "type": "string", "description": "Identifies the quiz/exam, e.g. 'Phase 1 exam' or 'Day 7 quiz (bank)'" },
           "predictedPercent": { "type": "number", "minimum": 0, "maximum": 100 },
           "actualPercent":    { "type": "number", "minimum": 0, "maximum": 100 },
           "delta":            { "type": "number", "description": "actualPercent - predictedPercent. Positive = underconfident." },
-          "interpretation":   { "type": "string", "enum": ["underconfident", "calibrated", "overconfident"] }
+          "interpretation":   { "type": "string", "enum": ["underconfident", "calibrated", "overconfident"] },
+          "source": {
+            "type": "string",
+            "enum": ["bank", "synthetic"],
+            "description": "Where the questions came from. 'bank' = real questions from courses/{slug}/bank/ (closer to real-exam signal). 'synthetic' = coach-generated (phase exams, daily quizzes without bank coverage). The dashboard's readiness math weights bank deltas 2× synthetic when computing bias and noise."
+          }
         }
       }
     },

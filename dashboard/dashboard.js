@@ -105,6 +105,12 @@ function signed(n) {
   return (n >= 0 ? '+' : '') + n;
 }
 
+/** Calibration source badge (bank vs synthetic). Defensive: missing source renders as synthetic. */
+function sourceBadge(source) {
+  if (source === 'bank') return '<span class="badge badge-source badge-bank">BANK</span>';
+  return '<span class="badge badge-source badge-synthetic">SYN</span>';
+}
+
 // ─── 1. Header Strip ─────────────────────────────────────────────────────────
 
 function renderHeaderStrip(state) {
@@ -314,13 +320,19 @@ function renderCalibrationChart(state) {
   const tableRows = calibration.map(c => `
     <tr>
       <td>${c.date}</td>
-      <td>${c.label}</td>
+      <td>${c.label} ${sourceBadge(c.source)}</td>
       <td>${c.predictedPercent}%</td>
       <td>${c.actualPercent}%</td>
       <td class="${deltaClass(c.delta)}">${signed(c.delta)}</td>
       <td class="${deltaClass(c.delta)}">${c.interpretation}</td>
     </tr>
   `).join('');
+
+  const bankCount = calibration.filter(c => c.source === 'bank').length;
+  const synCount  = calibration.length - bankCount;
+  const mixNote = (bankCount > 0 && synCount > 0)
+    ? `<p class="calibration-mix-note muted">${bankCount} bank, ${synCount} synthetic. Readiness math weights bank deltas 2× synthetic.</p>`
+    : '';
 
   section.innerHTML = `
     <h2 class="card-title">Calibration — Predicted vs Actual</h2>
@@ -335,6 +347,7 @@ function renderCalibrationChart(state) {
       </thead>
       <tbody>${tableRows}</tbody>
     </table>
+    ${mixNote}
   `;
 
   // Chart only if Chart.js is loaded and we have ≥ 2 data points

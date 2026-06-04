@@ -44,6 +44,7 @@ These files are your working surface. Read them; write to them; keep them in syn
 |---|---|
 | `SOURCES.md` | Index of all source materials with priority levels — read before answering knowledge questions |
 | `sources/` | Ingested study materials (PDFs as markdown, course transcripts, docs) |
+| `bank/` | **Optional** question bank — real practice questions (verbatim from an imported source). Format: `templates/question-bank.md`. When present, the coach draws from this in quizzes alongside synthetic generation. Bank actuals weighted 2× synthetic in readiness math. Absence = synthetic only (no behavior change). |
 | `memory.md` | Persistent session log — you read AND append to this every session |
 | `progress.md` | Day-by-day tracker with scores and completion status — primary navigation reference |
 | `cheatsheet.md` | Forward-looking decision rules. **Rule-oriented.** "Here's the model, apply it." Appended after each phase. |
@@ -62,6 +63,7 @@ These files are your working surface. Read them; write to them; keep them in syn
 - `templates/memory-entry.md` — memory entry format and rules
 - `templates/state-schema.json` — JSON Schema for `data/state.json` (validated by the build script on every write)
 - `templates/dashboard-template.html` — source template; the build script injects state into it
+- `templates/question-bank.md` — bank file format (id, domain tag, options, correct, explanation)
 
 ---
 
@@ -134,11 +136,12 @@ These rules go into `cheatsheet.md` after the phase is complete.
 ### 4. Practice Questions (3 minimum)
 
 Exam-style scenario-based MCQs. Full generation constraints in `templates/quiz-question.md`. Summary:
-- Ground in a case pattern from `cases.md`
+- **Bank first when available.** Before generating any question, list `bank/` and find entries tagged with the day's domain (`[domain: Dx]` in the heading). If any exist, draw **at least one** verbatim — do not paraphrase, do not edit options. Then synthesize the rest from `cases.md`. Tell the student which were bank-drawn (e.g., `"Q1 from bank (Q-042), Q2–Q3 synthesized"`).
+- Ground synthetic ones in a case pattern from `cases.md`
 - 4 options, one correct, three plausible distractors targeting named traps where possible
 - Make them hard — test edges and traps, not definitions
 - Randomize correct-answer letter across A/B/C/D within the quiz session
-- After the student answers, explain ALL four options (why correct is correct, why each distractor fails)
+- After the student answers, explain ALL four options (why correct is correct, why each distractor fails). For bank questions, prefer the bank entry's `**Explanation:**` block verbatim; expand it only when a primary source contradicts a fact in it (flag the discrepancy in `misses.md`).
 - Present questions **one at a time** — wait for the student's answer before revealing the next
 
 **CRITICAL — Quiz answer-leak prevention:**
@@ -292,7 +295,11 @@ For every miss this session, operate on `misses[]` first (it's the structured re
 - `trap` → construct a **new scenario** from the `diagnostic` seed. Don't repeat the original miss scenario; the goal is to test pattern recognition in a fresh surface.
 - `confusion` → run a **discrimination drill**. Present a quick contrast between `confusionPair.a` and `confusionPair.b` (a tight definition pair, a single question that hinges on which one applies, or "name the rule that distinguishes them"). The goal is to install the *discrimination cue*, not to drill a scenario.
 
-**`CALIBRATION.md`** — after each quiz or phase exam: log date, label, predicted %, actual %, delta, interpretation.
+**`CALIBRATION.md` + `calibration[]` in `state.json`** — after each quiz or phase exam: log date, label, predicted %, actual %, delta, interpretation, **source**.
+
+- `source` is required (schema v2.3+). Use `"bank"` for entries scored from bank-drawn questions, `"synthetic"` for coach-generated questions (daily quizzes without bank coverage, phase exams).
+- **Split mixed quizzes.** When a single quiz contained both bank and synthetic questions, write **two `calibration[]` entries** — one for the bank subset and one for the synthetic subset — using the same date but distinct labels (e.g., `"Day 7 quiz (bank)"` and `"Day 7 quiz (synthetic)"`). Never merge the scores. The dashboard weights bank deltas 2× synthetic; merging would destroy the signal.
+- If the quiz had only one source (all bank, or all synthetic), one entry is enough.
 
 ---
 
@@ -335,7 +342,8 @@ Use the schema in `templates/state-schema.json` as reference. Key invariants:
 - `status` values: `"pending"`, `"in-progress"`, `"partial"`, `"complete"`
 - Miss IDs are stable strings assigned at creation (`miss-0001`, `miss-0002`…) — never renumbered
 - `watchlist[]` is **build-derived** from `misses[]` (entries with `onWatchlist=true`, sorted by `watchlistPosition`). Do not edit it by hand — the script overwrites it on every build.
-- `schemaVersion` is `"2.2"`. The `examProfile` block carries the MCQ exam descriptor — leave its defaults unless the student explicitly redefines the exam format.
+- `schemaVersion` is `"2.3"`. The `examProfile` block carries the MCQ exam descriptor — leave its defaults unless the student explicitly redefines the exam format.
+- `calibration[].source` is required: `"bank"` (verbatim from `bank/`) or `"synthetic"` (coach-generated). Pre-2.3 state files are migrated automatically by the build script with `source: "synthetic"` on every existing entry.
 
 **Readiness — write only the coach-owned fields:**
 - `readiness.coldWaterEstimatePercent` (your raw vibes-based blended estimate)
@@ -343,8 +351,8 @@ Use the schema in `templates/state-schema.json` as reference. Key invariants:
 - `readiness.lastUpdated` (when you last refreshed the above)
 
 Do **not** write `marginOverCutPercent`, `noiseModelStdDevPercent`, `passProbabilityRoughEstimate`, `biasCorrectionPercent`, `sampleSize`, `debiasedEstimatePercent`, or `qualitativeBand` by hand. `scripts/build-dashboard.mjs` recomputes them on every build:
-- Bias correction = mean(calibration[].delta) when there are ≥ 5 entries; below that, bias defaults to 0 (don't overfit on small samples).
-- Noise stdev = observed stdev(delta) when ≥ 5 entries (clamped to a 3% floor); below that, the ±7% prior.
+- Bias correction = weighted mean(calibration[].delta) when there are ≥ 5 entries (bank weight 2, synthetic weight 1); below that, bias defaults to 0 (don't overfit on small samples).
+- Noise stdev = weighted stdev(delta) when ≥ 5 entries (same weights; clamped to a 3% floor); below that, the ±7% prior.
 - Pass probability = `1 − normalCDF((passMarkPercent − debiasedEstimatePercent) / stdDev)`, where debiased = clamp(coldWater + bias, 0..100).
 - For `examProfile.scoring.model = "pass_fail_unknown"`, margin and probability are suppressed; a qualitative band is set from the debiased estimate instead.
 

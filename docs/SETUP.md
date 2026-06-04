@@ -49,6 +49,7 @@ Requires Node.js ≥ 18 (for the dashboard build script).
    - **Multiple-correct questions:** no (default), or yes — with all-or-nothing or partial credit.
 8. **Total study days available** — integer
 9. **Source materials** — paths/files to drop in, or "I'll add them later"
+9a. **Question bank** (optional) — paths/files to drop into `bank/`, or "no" (default). A bank is *real* practice questions (vendor pack, course-pack questions, official sample set, prior-exam pool) — not questions written from memory. The coach draws bank questions during quizzes alongside synthetic generation, and weights bank actuals 2× synthetic in the readiness debias. See "Adding a question bank" below.
 10. **License preference** — default MIT
 
 ---
@@ -74,6 +75,29 @@ The coach uses this priority order when sources disagree. When all sources are s
 
 ---
 
+## Adding a question bank (optional)
+
+Drop real practice questions — verbatim from a vendor pack, course-pack quizzes, an official sample set, or a prior-exam pool — into `courses/{slug}/bank/`. The coach reads them at quiz time and prefers bank questions over synthesizing new ones for any domain the bank covers.
+
+**Format:** see `templates/question-bank.md` for the full spec. Each question is a markdown section with an ID + domain tag in the heading, the stem, lettered options, a `**Correct:**` line, and an `**Explanation:**` block. Multiple questions per file is fine; multiple files in `bank/` is fine. Name them however maps to your source material.
+
+**Why bank questions matter:**
+
+| Question source | Trap structure | Coach's score-inflation bias | Calibration weight |
+|---|---|---|---|
+| **Bank** (verbatim from declared source) | Real — the source's actual distractors | None — the coach didn't write them | **2× synthetic** |
+| **Synthetic** (coach-generated) | Approximated — the coach reasons about likely distractors | Some — the coach knows the trap it's drilling | 1× |
+
+The dashboard's readiness debias weights bank deltas twice as heavily as synthetic when computing bias and noise (`scripts/build-dashboard.mjs` → `computeReadiness`). Once you have ≥ 5 calibration entries total, your headline number is closer to real-exam expectation in proportion to how much of the data is bank.
+
+**Declaring the bank in `SOURCES.md`:** the starter `SOURCES.md` includes a Question Bank section. Add one line per bank file with provenance — vendor, question count, domains covered, date retrieved. This is documentation, not a structural requirement; the coach reads the bank files directly from `bank/`.
+
+**Mixing scores in a single quiz:** when a quiz draws both bank and synthetic questions, the coach writes **two** `calibration[]` entries — one for the bank subset, one for the synthetic subset — so the per-source signal is preserved. The dashboard's calibration table shows a small `BANK` / `SYN` badge on each row.
+
+**The bank is optional.** If `bank/` is empty (or missing), the coach behaves exactly as before: synthetic generation only.
+
+---
+
 ## Running the pre-study diagnostic
 
 After sources are in place, tell the coach: `"run diagnostic"`. It generates a 10–15 question diagnostic across your declared domains, saves results to `DIAGNOSTIC.md`, and adjusts the phase plan to front-load your weakest areas.
@@ -86,12 +110,12 @@ Run the diagnostic before Day 1. It takes 15–20 minutes and materially changes
 
 If you prefer to customize the template by hand:
 
-1. Create the course folder: `mkdir -p courses/{slug}/{data,dashboard,sources,quizzes}`
+1. Create the course folder: `mkdir -p courses/{slug}/{data,dashboard,sources,bank,quizzes}`
 2. Copy `CLAUDE.md.template` to `courses/{slug}/CLAUDE.md`, replacing all `{{PLACEHOLDERS}}` with your values
 3. Copy the dashboard assets: `cp dashboard/dashboard.{css,js} courses/{slug}/dashboard/`
 4. Copy files from `starter-files/` to `courses/{slug}/`, replacing placeholders as you go
 5. Write your phase plan into the `## Study Plan Structure` section of `courses/{slug}/CLAUDE.md` and into `courses/{slug}/progress.md`
-6. Populate `courses/{slug}/data/state.json` using the schema in `templates/state-schema.json` (use `schemaVersion: "2.0"` and include the `examProfile` block — see the schema for the default shape)
+6. Populate `courses/{slug}/data/state.json` using the schema in `templates/state-schema.json` (use `schemaVersion: "2.3"` and include the `examProfile` block — see the schema for the default shape)
 7. Build the dashboard: `node scripts/build-dashboard.mjs {slug}` — this validates `state.json` and writes `courses/{slug}/dashboard/index.html`. The script refuses to write on validation failure.
 
 The manual path is more work but useful if you want to pre-populate a phase plan before your first Claude Code session.
@@ -124,7 +148,8 @@ All course files live under `courses/{slug}/`. The repo root contains only templ
 | `courses/{slug}/cheatsheet.md` | Coach | Forward-looking decision rules, appended per phase |
 | `courses/{slug}/misses.md` | Coach | Retrospective trap index + Repeat-Miss Watchlist |
 | `courses/{slug}/cases.md` | `/init-coach` + Coach | Case patterns for question generation |
-| `courses/{slug}/SOURCES.md` | You | Source material index with priority levels |
+| `courses/{slug}/SOURCES.md` | You | Source material index with priority levels (plus optional Question Bank section) |
+| `courses/{slug}/bank/` (optional) | You | Real practice questions verbatim from declared sources. Format: `templates/question-bank.md`. Absence = synthetic-only quizzes (default). |
 | `courses/{slug}/DIAGNOSTIC.md` | Coach | Pre-study diagnostic results |
 | `courses/{slug}/CALIBRATION.md` | Coach | Predicted-vs-actual score tracking |
 | `courses/{slug}/quizzes/day-NN.md` | Coach | Per-day quiz records |

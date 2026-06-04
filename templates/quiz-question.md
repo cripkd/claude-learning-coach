@@ -4,7 +4,21 @@
 
 ---
 
-## Generation constraints
+## Drawing from a question bank (preferred when available)
+
+If `bank/` exists and contains questions tagged with the day's domain (`[domain: Dx]` in the entry heading; format: `templates/question-bank.md`), **draw from the bank first** before generating any synthetic questions.
+
+- **Verbatim only.** Present the question's stem, options, and explanation exactly as written. Do not paraphrase, do not reorder options, do not rewrite distractors — the bank's value is its real distractor structure.
+- **Attribute the source.** Tell the student which questions are bank-drawn (e.g., `"Q1 from bank (Q-042); Q2–Q3 synthesized"`). Quiz logs (`quizzes/day-NN.md`) record the bank ID for each bank question.
+- **Mix freely.** A quiz can be all bank, all synthetic, or mixed. When the day's domain has no bank coverage, generate synthetically as usual.
+- **Don't overdraw.** Don't pull more than ~50% of a single quiz from the bank when synthetic coverage is also available — synthetic targets named traps from `misses.md`, which the bank may or may not. Use the bank for breadth; use synthetic for targeted drilling.
+- **When the bank explanation conflicts with primary sources:** the primary source wins for facts. Note the discrepancy in `misses.md` so the next drill addresses it — but leave the bank entry verbatim in `bank/`.
+
+After bank draws, fall through to the synthetic-generation rules below.
+
+---
+
+## Generation constraints (synthetic questions)
 
 Generate a scenario-grounded MCQ with the following constraints. The option count and correctness rules come from `examProfile.questionFormat` in `data/state.json`; the defaults below match a typical 4-option single-correct exam.
 
@@ -70,4 +84,5 @@ When drilling the Repeat-Miss Watchlist:
    b. Explain the mental model they should apply instead
    c. Note the miss in `misses.md` (check for an existing entry to merge into first)
 4. After all questions, give a score summary and note any new or promoted watchlist items.
-5. Save the full quiz to `quizzes/day-NN.md`.
+5. Save the full quiz to `quizzes/day-NN.md`. For bank-drawn questions, record the bank ID alongside the response — provenance matters.
+6. **Calibration logging — split by source.** If the quiz mixed bank and synthetic questions, write **two** `calibration[]` entries (same date, distinct labels, distinct `source` values). Never merge bank scores into the synthetic entry — the dashboard's readiness math relies on the split to weight bank actuals higher.

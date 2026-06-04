@@ -112,6 +112,15 @@ Store: `TOTAL_DAYS` (integer).
 
 Store: `SOURCES[]` — list of `{path, label, priority}` if provided. If "later", leave `sources/` empty and note it in the setup summary.
 
+### Q9a — Question bank (optional)
+> Do you have a question bank for this exam? A bank is **real** practice questions (verbatim from a vendor pack, course-pack questions, an official sample set, or a prior-exam pool) — *not* questions you'd write yourself. The coach draws from the bank during quizzes alongside synthetic generation, and weights bank results 2× synthetic when computing readiness (closer-to-real-exam signal).
+>
+> If yes, drop the source files into `bank/` (format spec: `templates/question-bank.md`) and tell me their filenames. If no, say "no" and I'll set up an empty `bank/` directory — you can add a bank later by following the same format.
+
+Store: `BANK_FILES[]` — list of `{path, label, questionCount, domains, retrievedDate}` if provided. If "no" or omitted, leave `bank/` empty.
+
+The bank is fully **optional**. Absence of bank files = today's behavior (synthetic generation only). Do not prompt the student for a bank if they've already said "no" earlier or if they don't have one ready.
+
 ### Q10 — Reference resources
 > Any specific courses, documentation sites, or community resources to link in daily sessions? (Optional — examples: "official docs at docs.example.com", "Course X on Platform Y")
 
@@ -138,6 +147,7 @@ courses/{COURSE_SLUG}/
 courses/{COURSE_SLUG}/data/
 courses/{COURSE_SLUG}/dashboard/
 courses/{COURSE_SLUG}/sources/
+courses/{COURSE_SLUG}/bank/        ← optional, kept even when empty so the convention is discoverable
 courses/{COURSE_SLUG}/quizzes/
 ```
 
@@ -279,6 +289,7 @@ For each file in `starter-files/`, copy it to `courses/{COURSE_SLUG}/` and subst
 **`starter-files/SOURCES.md` → `SOURCES.md`**
 - No placeholders to replace
 - If the student provided source files in Q9: add entries to the appropriate priority tier sections based on the information provided. If priority wasn't declared per source, ask: "Should I put these under Primary, Secondary, or Tertiary?"
+- If the student provided bank files in Q9a: add one entry per file under the **Question Bank** section in the format `- [filename.md](bank/filename.md) — Description, N Qs, domains, retrieved YYYY-MM-DD`. If they didn't provide a bank, leave the section's example comments in place.
 
 **`starter-files/DIAGNOSTIC.md` → `DIAGNOSTIC.md`**
 - Replace `{{DIAGNOSTIC_DATE}}` with `"TBD — run 'run diagnostic' to fill in"`
@@ -296,6 +307,7 @@ For each file in `starter-files/`, copy it to `courses/{COURSE_SLUG}/` and subst
 
 **Also ensure these exist** (already created in Step 2):
 - `courses/{COURSE_SLUG}/sources/` — with a `.gitkeep` if empty
+- `courses/{COURSE_SLUG}/bank/` — with a `.gitkeep` if empty (the convention is discoverable even without files)
 - `courses/{COURSE_SLUG}/quizzes/` — with a `.gitkeep` if empty
 
 ---
@@ -307,7 +319,7 @@ Write a fully populated `courses/{COURSE_SLUG}/data/state.json` using the schema
 Key field values:
 
 ```
-schemaVersion: "2.2"
+schemaVersion: "2.3"
 exam.fullName: EXAM_FULL_NAME
 exam.shortName: EXAM_SHORT_NAME
 exam.date: EXAM_DATE (null if "ongoing")
@@ -390,7 +402,7 @@ readiness:
 lastUpdated: today's date + "T00:00:00Z"
 ```
 
-`schemaVersion` is `"2.2"`.
+`schemaVersion` is `"2.3"`.
 
 **Exam pass mark:** if the student didn't mention it during Q6 and it's a well-known exam, use the known pass mark. If unknown, default to 72 and add a note: "I've defaulted the pass mark to 72% — update `exam.passMarkPercent` in `data/state.json` if you know the actual value."
 
@@ -451,6 +463,7 @@ Files written:
   courses/[COURSE_SLUG]/CALIBRATION.md         ← ready to fill
   courses/[COURSE_SLUG]/data/state.json        ← structured state initialized
   courses/[COURSE_SLUG]/dashboard/index.html   ← dashboard rendered
+  courses/[COURSE_SLUG]/bank/                  ← [bank-count] bank files (or empty)
 
 Next steps:
 1. Drop your study materials into courses/[COURSE_SLUG]/sources/ and fill in SOURCES.md
@@ -459,6 +472,7 @@ Next steps:
 4. When ready, say "let's go" or "Day 1" to start
 
 [If sources were not provided:] I've left sources/ empty — add your materials before running the diagnostic.
+[If bank was not provided:] No question bank declared — quizzes will be coach-generated. You can drop a bank into bank/ later (format: templates/question-bank.md); the coach picks it up automatically.
 [If pass mark was defaulted:] Double-check exam.passMarkPercent in data/state.json (currently 72%).
 [If domain weights were estimated:] Double-check domain weights in data/state.json against the official exam blueprint.
 ```

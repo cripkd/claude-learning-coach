@@ -519,6 +519,30 @@ ol { list-style: decimal inside; }
   border: 1px solid rgba(124, 106, 247, 0.4);
 }
 
+.badge-source {
+  font-size: 0.62rem;
+  padding: 1px 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.badge-bank {
+  background: rgba(76, 175, 125, 0.18);
+  color: var(--success);
+  border: 1px solid rgba(76, 175, 125, 0.4);
+}
+
+.badge-synthetic {
+  background: rgba(146, 146, 182, 0.14);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+}
+
+.calibration-mix-note {
+  font-size: 0.78rem;
+  margin-top: 8px;
+}
+
 .confusion-pair {
   font-size: 0.83rem;
   font-family: var(--font-mono);

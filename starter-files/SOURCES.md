@@ -40,6 +40,22 @@ Example:
 
 ---
 
+## Question Bank (optional — orthogonal to the priority tiers above)
+
+<!-- Real practice questions verbatim from an imported source (vendor pack, course-pack questions, official sample set, prior-exam pool). The coach draws from these during quizzes, alongside synthetic generation, and weights bank actuals 2× synthetic when computing readiness.
+
+The bank lives in `bank/` (parallel to `sources/`). Format spec: `templates/question-bank.md`. The bank is optional — leave this section empty and the coach behaves exactly as without a bank.
+
+Add entries in this format:
+- [filename.md](bank/filename.md) — Description, question count, domains covered, retrieved YYYY-MM-DD
+
+Example:
+- [tutorialsdojo-set-a.md](bank/tutorialsdojo-set-a.md) — TutorialsDojo SAA Practice Set A, 65 Qs, D1–D4, retrieved 2025-01-12
+- [course-chapter-quizzes.md](bank/course-chapter-quizzes.md) — Cantrill course end-of-chapter quizzes, 80 Qs, D1–D4, retrieved 2025-01-08
+-->
+
+---
+
 ## Priority Rule
 
 When sources disagree on a fact: **primary > secondary > tertiary**.
@@ -47,3 +63,5 @@ When sources disagree on a fact: **primary > secondary > tertiary**.
 When primary is silent on a topic, secondary wins. When all sources are silent, the coach marks the answer as **"out-of-source"** and flags it for verification rather than fabricating an answer.
 
 If you discover a source is outdated or incorrect after adding it, move it to a lower priority tier and add a note explaining why.
+
+**Bank vs sources.** The bank is a *practice surface* (questions), not a *knowledge surface* (facts). When a bank question's explanation contradicts a primary source, the primary source wins for facts and decision rules — but the bank entry stays in `bank/` verbatim (its trap structure is the point). Flag the discrepancy in `misses.md` so the next drill addresses it.

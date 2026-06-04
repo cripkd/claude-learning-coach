@@ -15,9 +15,9 @@ What this template targets today, what's planned, and what it isn't trying to do
 - Question formats: 4 or 5 options, single-correct (default) or **multiple-correct** with all-or-nothing or partial credit.
 - Recall-heavy mixes: the `confusion` miss type drills A-vs-B pairs head-to-head (separate from scenario traps); the `scenarioRecallRatio` knob biases each session toward scenarios or recall.
 - Readiness self-correction: the dashboard debiases the cold-water estimate from the student's own predicted-vs-actual history once there are ≥ 5 calibration points.
+- **Question-bank import:** drop real practice questions into `courses/{slug}/bank/` and the coach draws from them in quizzes alongside synthetic generation. Bank actuals are weighted 2× synthetic in the readiness debias (closer-to-real-exam signal). Format spec in `templates/question-bank.md`; the bank is fully optional.
 
 **Not yet (roadmap)**
-- Question-bank import.
 - Sparse-source handling (when authoritative sources are partial or missing).
 
 **Out of scope**
@@ -55,7 +55,7 @@ Then in the Claude Code prompt:
 /init-coach
 ```
 
-Answer the 10 interview questions (≈ 5 minutes), drop your source materials into `sources/`, and say `"run diagnostic"` to take the pre-study assessment. After that, every session starts with `"let's go"` or `"Day N"`.
+Answer the 10 interview questions (≈ 5 minutes), drop your source materials into `sources/` (and, optionally, a real question bank into `bank/` — format: `templates/question-bank.md`), and say `"run diagnostic"` to take the pre-study assessment. After that, every session starts with `"let's go"` or `"Day N"`.
 
 ---
 
@@ -115,6 +115,7 @@ courses/
     ├── DIAGNOSTIC.md       ← pre-study diagnostic
     ├── CALIBRATION.md      ← predicted vs actual log
     ├── sources/            ← your study materials
+    ├── bank/               ← optional question bank (real practice questions)
     ├── quizzes/            ← per-day quiz records
     ├── data/state.json     ← canonical structured state (source of truth)
     └── dashboard/
