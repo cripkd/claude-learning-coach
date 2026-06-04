@@ -18,12 +18,12 @@ claude            # opens Claude Code in this directory
 /init-coach       # starts the interactive setup interview
 ```
 
-`/init-coach` asks you 10 questions, then:
+`/init-coach` asks you ~10–12 questions (a few are optional and skip on `"default"`), then:
 - Generates a customized `courses/{slug}/CLAUDE.md` (replacing `CLAUDE.md.template` placeholders with your answers)
 - Copies all starter files from `starter-files/` to `courses/{slug}/` with your placeholders filled in
-- Writes the initial `courses/{slug}/data/state.json` (canonical structured state, `schemaVersion: "2.0"`) — which fires the dashboard-build hook
+- Writes the initial `courses/{slug}/data/state.json` (canonical structured state, `schemaVersion: "2.3"`) — which fires the dashboard-build hook
 - The hook runs `scripts/build-dashboard.mjs {slug}` to produce the first `courses/{slug}/dashboard/index.html`
-- Reminds you to drop your source materials into `courses/{slug}/sources/`
+- Reminds you to drop your source materials into `courses/{slug}/sources/` (and, optionally, a question bank into `courses/{slug}/bank/`)
 
 After `/init-coach` completes, `courses/{slug}/` contains your working study environment. The `starter-files/` directory is no longer needed for day-to-day use.
 
@@ -49,10 +49,13 @@ Requires Node.js ≥ 18 (for the dashboard build script).
    - **Scoring model:** fixed-percent (default), scaled (e.g., 720 of 1000 — provide the scale range), or pass-fail with no published cut.
    - **Options per question:** 4 (default) or 5.
    - **Multiple-correct questions:** no (default), or yes — with all-or-nothing or partial credit.
+
+   Full descriptor in [`docs/EXAM-PROFILES.md`](EXAM-PROFILES.md).
 8. **Total study days available** — integer
 9. **Source materials** — paths/files to drop in, or "I'll add them later"
 9a. **Question bank** (optional) — paths/files to drop into `bank/`, or "no" (default). A bank is *real* practice questions (vendor pack, course-pack questions, official sample set, prior-exam pool) — not questions written from memory. The coach draws bank questions during quizzes alongside synthetic generation, and weights bank actuals 2× synthetic in the readiness debias. See "Adding a question bank" below.
-10. **License preference** — default MIT
+10. **Reference resources** — courses, documentation sites, or community resources to link in daily sessions (optional)
+11. **License preference** — default MIT
 
 ---
 
@@ -73,7 +76,7 @@ Drop your study materials into `courses/{slug}/sources/` as markdown, plain text
 
 The coach uses this priority order when sources disagree. When all sources are silent on a topic, it marks the answer as "out-of-source" rather than fabricating.
 
-**v1 is passive ingestion.** The coach doesn't parse or index your source files automatically. It reads them when you reference them during sessions and uses them as ground truth when answering knowledge questions. v2 will add active parsing.
+**Source ingestion is passive.** The coach doesn't parse or index your source files automatically — it reads them when you reference them during sessions and uses them as ground truth when answering knowledge questions. Active parsing (auto-indexing, source coverage validation) is the v3 roadmap item; today, the priority hierarchy you declare in `SOURCES.md` is the coach's reference map.
 
 ---
 
@@ -170,8 +173,8 @@ For minor adjustments (swap two days, extend a phase by one day), edit `courses/
 
 ## What the coach will NOT do
 
-- Parse your source documents for you (v1: passive ingestion only)
-- Generate questions from sources automatically (it generates from its domain knowledge; sources are reference)
-- Send you reminders or push notifications (no background process)
-- Sync across devices (files are local; use git if you want sync)
-- Support multiple students from the same repo (single-student by design)
+- **Parse your source documents for you** — passive ingestion only. The coach reads sources when you reference them during sessions; it does not auto-index or auto-summarize. Active source parsing is on the v3 roadmap.
+- **Auto-generate questions from source prose** — synthetic questions come from the coach's own domain knowledge grounded in `cases.md`. If you want real source-derived questions, drop them into `bank/` as verbatim entries (see "Adding a question bank" above) — that's how source-of-truth practice questions enter the quiz mix.
+- **Send you reminders or push notifications** — no background process.
+- **Sync across devices** — files are local; use git if you want sync.
+- **Support multiple students from the same repo** — single-student by design.

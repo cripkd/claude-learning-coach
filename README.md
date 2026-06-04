@@ -1,6 +1,6 @@
 # Exam Coach Template
 
-A Claude Code-powered study coach for scenario-based multiple-choice certification exams — the kind with a published, weighted domain blueprint (AWS, Azure, GCP, Anthropic, and similar vendors). Clone it, run one slash command, answer 10 questions — you have a personalized study coach that maintains memory across sessions, tracks progress, runs scenario-MCQ quizzes, and calibrates against your exam date.
+A Claude Code-powered study coach for scenario-based multiple-choice certification exams — the kind with a published, weighted domain blueprint (AWS, Azure, GCP, Anthropic, and similar vendors). Clone it, run one slash command, answer ~10 questions — you have a personalized study coach that maintains memory across sessions, tracks progress, runs scenario-MCQ quizzes, and calibrates against your exam date.
 
 **See it before you set it up.** A fully-populated worked-example course lives at [`courses/example-saa-c03/`](courses/example-saa-c03/) — open `courses/example-saa-c03/dashboard/index.html` in any browser to see what a mid-prep dashboard looks like (5-day SAA-C03 slice, debiased readiness, watchlist, coverage gap, bank-vs-synthetic calibration split). It's synthetic — the student "Alex" doesn't exist — and it's also the canonical regression fixture for the build script (`npm run validate-example`).
 
@@ -18,9 +18,13 @@ What this template targets today, what's planned, and what it isn't trying to do
 - Recall-heavy mixes: the `confusion` miss type drills A-vs-B pairs head-to-head (separate from scenario traps); the `scenarioRecallRatio` knob biases each session toward scenarios or recall.
 - Readiness self-correction: the dashboard debiases the cold-water estimate from the student's own predicted-vs-actual history once there are ≥ 5 calibration points.
 - **Question-bank import:** drop real practice questions into `courses/{slug}/bank/` and the coach draws from them in quizzes alongside synthetic generation. Bank actuals are weighted 2× synthetic in the readiness debias (closer-to-real-exam signal). Format spec in `templates/question-bank.md`; the bank is fully optional.
+- **Coverage-vs-blueprint check:** the dashboard flags any domain whose actual study effort is ≥ 5pp below its expected share (`weight / sumWeights` in weighted mode, `1/n` in unweighted), so under-drilled high-weight domains surface before exam day.
+
+> See [`docs/EXAM-PROFILES.md`](docs/EXAM-PROFILES.md) for the full `examProfile` descriptor — every axis above lives there as an enum or constant, with defaults that reproduce the CCA-shaped exam out of the box.
 
 **Not yet (roadmap)**
 - Sparse-source handling (when authoritative sources are partial or missing).
+- Active source parsing — automatic indexing of dropped source files so the coach can ground answers without being told which section to read.
 
 **Out of scope**
 - Non-MCQ formats: free-response, performance / lab, oral, coding exercises.
@@ -57,7 +61,7 @@ Then in the Claude Code prompt:
 /init-coach
 ```
 
-Answer the 10 interview questions (≈ 5 minutes), drop your source materials into `sources/` (and, optionally, a real question bank into `bank/` — format: `templates/question-bank.md`), and say `"run diagnostic"` to take the pre-study assessment. After that, every session starts with `"let's go"` or `"Day N"`.
+Answer the 10–12 interview questions (≈ 5 minutes — depends on which optional sub-questions apply), drop your source materials into `sources/` (and, optionally, a real question bank into `bank/` — format: `templates/question-bank.md`), and say `"run diagnostic"` to take the pre-study assessment. After that, every session starts with `"let's go"` or `"Day N"`.
 
 ---
 
@@ -70,12 +74,14 @@ The setup is a guided interview — no manual file editing required:
 3. **Your name** — optional; used in the coach's tone
 4. **Your background** — 1–3 sentences: role, prior experience, known gaps
 5. **How you learn best** — scenarios/hands-on, lecture-style, drilling, or mixed
-6. **Exam domains** — list with weights if known (e.g., `"D1: 30%, D2: 22%, ..."`)
+6. **Exam domains** — list with weights if known (e.g., `"D1: 30%, D2: 22%, ..."`), without weights (equal allocation), or `"no blueprint"` (domains emerge from the diagnostic)
 7. **Case reasoning vs recall** — does the exam test integrated scenarios, or is it primarily recall? (affects phase plan shape)
-7a. **Scoring & question format** (optional — defaults match a typical cert exam) — fixed-percent / scaled / pass-fail-unknown cutoff; 4 or 5 options; single- or multiple-correct (with all-or-nothing or partial credit). Skip with `"default"`.
+7a. **Scoring & question format** (optional — defaults match a typical cert exam) — fixed-percent / scaled / pass-fail-unknown cutoff; 4 or 5 options; single- or multiple-correct (with all-or-nothing or partial credit). Skip with `"default"`. Full descriptor in [`docs/EXAM-PROFILES.md`](docs/EXAM-PROFILES.md).
 8. **Total study days available** — integer
 9. **Source materials** — paths/files to drop in, or `"I'll add them later"`
-10. **License preference** — default MIT
+9a. **Question bank** (optional) — real practice questions to drop into `bank/`, or `"no"`. See [`docs/SETUP.md`](docs/SETUP.md#adding-a-question-bank-optional).
+10. **Reference resources** — courses / docs / community links to surface in daily sessions (optional)
+11. **License preference** — default MIT
 
 After the interview, the coach generates your `CLAUDE.md`, copies and fills in all starter files, writes the initial `data/state.json`, and renders the first `dashboard/index.html`.
 
@@ -186,6 +192,7 @@ Each course dashboard is rebuilt automatically by a `.claude` hook whenever `cou
 |---|---|
 | [`docs/SETUP.md`](docs/SETUP.md) | Full setup guide, manual customization path, day-to-day reference |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Why the template is designed the way it is — rejected alternatives and rationale |
+| [`docs/EXAM-PROFILES.md`](docs/EXAM-PROFILES.md) | The `examProfile` descriptor — every parameterization axis (blueprint mode, scoring model, question format), with defaults |
 | [`docs/ENDGAME.md`](docs/ENDGAME.md) | Final-72-hour playbook: last week, Day -3, Day -2, rest day, exam day |
 | [`docs/DASHBOARD.md`](docs/DASHBOARD.md) | Dashboard internals, regeneration flow, pass-probability framing |
 
@@ -193,13 +200,13 @@ Each course dashboard is rebuilt automatically by a `.claude` hook whenever `cou
 
 ## Status
 
-v1 — passive source ingestion, exam-defined or pool-derived case patterns, MIT licensed.
+**v2 (current — schema `2.3`).** MCQ parameterization landed: blueprint degradation (weighted / unweighted / none), scoring variants (fixed-percent / scaled / pass-fail-unknown), question formats (4-or-5 options, multi-correct with all-or-nothing or partial credit), the recall-vs-scenario mix, the trap-vs-confusion miss bifurcation, the closed calibration debias loop, question-bank import with a 2× calibration weight, and the coverage-vs-blueprint dashboard check. Passive source ingestion; MIT licensed.
 
 ## Roadmap
 
-- v2: MCQ parameterization — broader scenario-MCQ varieties (recall-heavy mixes, scaled scores, multiple-correct), question-bank import, sparse-source handling
-- v3: active source parsing, auto-generated domain maps, source coverage validation against exam blueprint
-- v4: Claude Code plugin packaging (if community adoption warrants)
+- **v2.x (remaining):** sparse-source handling — what the coach does when authoritative sources are partial or missing.
+- **v3:** active source parsing — automatic indexing of dropped source files (auto-generated domain maps, source coverage validation against the exam blueprint).
+- **Future (gated on adoption):** Claude Code plugin packaging — wrap the template + commands + hooks as an installable plugin. Not scoped yet; decision pending real-world usage.
 
 ## License
 

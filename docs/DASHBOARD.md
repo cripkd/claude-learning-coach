@@ -143,7 +143,7 @@ Why debias? An overconfident student keeps predicting higher than they actually 
 
 **Below 5 calibration points, the script falls back to bias = 0 and the ±7% prior** to avoid overfitting on small samples. The dashboard labels which mode it's in: `(±7% noise, prior)` vs `(±3% noise, from 5 quizzes)`.
 
-**Scoring-model variants (`examProfile.scoring.model`):**
+**Scoring-model variants (`examProfile.scoring.model` — full descriptor in [`docs/EXAM-PROFILES.md`](EXAM-PROFILES.md)):**
 - `fixed_percent` (default) — `passMarkPercent` is a raw percent (e.g., 72%). Margin and probability computed as above.
 - `scaled` — `passMarkPercent` is the percent-equivalent of the scaled cutoff; `scaleMin`/`scaleMax` give the scale (e.g., 100–1000). The dashboard labels the cutoff as *"720 of 1000 (72%)"* via linear interpolation. Math runs in percent space — if the actual scoring curve is non-linear (AWS's actually is), the displayed scaled number is an approximation, not a forecast.
 - `pass_fail_unknown` — no published cut. Margin and probability are both suppressed; the dashboard shows a **qualitative band** instead (Strong / Likely passing / Marginal / Weak), derived from the debiased estimate alone.

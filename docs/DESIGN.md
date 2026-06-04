@@ -105,7 +105,25 @@ The "out-of-source" flag is equally important: it prevents the coach from confab
 
 ---
 
-## 8. Rolling-summary `memory.md`
+## 8. `examProfile` as a parameterization descriptor
+
+**The choice:** Variability across MCQ exams (blueprint shape, scoring model, option count, single- vs multi-correct, scenario-vs-recall mix) is captured in one structured `examProfile` block on `state.json`. Phase planning, quiz generation, calibration math, and dashboard rendering all branch on its fields.
+
+**Rejected alternatives:**
+- A one-size-fits-all coach tuned to AWS/Azure/GCP CCA-shape exams — works for ~70% of cert exams, falls apart on the rest (scaled scoring, multi-correct, recall-heavy mixes, exams without a published blueprint).
+- A forest of `if`-branches sprinkled through `CLAUDE.md.template` and the build script — works once, drifts whenever a new variant lands.
+
+**Why a descriptor:** the variation is small (six enum-or-constant axes) and stable (it doesn't change across sessions). Capturing it in one structured object lets downstream logic branch once on a known field rather than re-deriving the exam shape from prose every time. Adding a new variant means filling in a new enum value, not rewriting the coach.
+
+The descriptor lives in `state.json` (not `CLAUDE.md` prose) because it's structured data the build script reads — keeping it out of prose avoids the same fact being written two ways. The schema marks every axis as required, so a course always commits to a complete descriptor; there is no ambiguous "unset" state.
+
+**Why a const for `profile` and `adaptive`:** out-of-scope categories (non-MCQ formats, computerized-adaptive exams) are pinned as JSON constants rather than absent fields. A schema-level no-op like `adaptive: false` makes the boundary explicit — a future state file claiming `adaptive: true` would fail validation, which is the right behavior because the project intentionally doesn't support CAT.
+
+Full reference (every axis, defaults, what each one enables): [`docs/EXAM-PROFILES.md`](EXAM-PROFILES.md).
+
+---
+
+## 9. Rolling-summary `memory.md`
 
 **The choice:** `memory.md` has two sections — a top **Standing Summary** that synthesizes everything older than the recent window, and a **Recent Entries** section holding the last **N = 7** dated entries verbatim. At session end the coach appends a new entry; if Recent Entries now holds more than 7, the oldest is folded (synthesized) into the Standing Summary and removed from the verbatim list. Session start reads only these two sections, not the file's pre-fold history.
 
