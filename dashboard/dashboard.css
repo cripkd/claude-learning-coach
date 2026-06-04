@@ -354,6 +354,42 @@ ol { list-style: decimal inside; }
   text-align: right;
 }
 
+/* ─── Coverage Gap ──────────────────────────────────────────── */
+
+.coverage-gap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.coverage-gap-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.coverage-gap-table th.numeric,
+.coverage-gap-table td.numeric {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.coverage-gap-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.coverage-gap-table tr:last-child td { border-bottom: none; }
+
+.coverage-gap-footer {
+  font-size: 0.83rem;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
 /* ─── Quiz Table ────────────────────────────────────────────── */
 
 .quiz-table {

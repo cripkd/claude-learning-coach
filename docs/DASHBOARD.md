@@ -22,7 +22,7 @@ The dashboard renders immediately in your browser. No build step, no `npm instal
 
 ## What it shows
 
-The dashboard surfaces 10 sections, in order of visual prominence:
+The dashboard surfaces 11 sections, in order of visual prominence:
 
 1. **Header strip** — exam name, exam date, days remaining until exam, current day, current phase
 2. **Headline readiness** — cold-water estimate %, margin over pass mark, rough pass probability (with formula shown)
@@ -30,6 +30,7 @@ The dashboard surfaces 10 sections, in order of visual prominence:
 4. **Phase breakdown** — each phase as a row with day-status pills (✅ complete / 🟡 in progress / ⬜ pending) and phase exam score when available
 5. **Calibration chart** — predicted vs actual % over time (line/scatter)
 6. **Domain coverage** — weighted bar chart (% of days complete × domain weight), reflects exam blueprint
+6b. **Coverage vs Blueprint** — per-domain effort share vs declared weight, flags under-drilled high-weight domains (see [Coverage vs Blueprint](#coverage-vs-blueprint) below)
 7. **Recent quiz scores** — last 5 quizzes with score and date
 8. **Repeat-Miss Watchlist** — numbered list with occurrence count and most-recent date per item
 9. **Recent misses** — last 5 misses added, by date
@@ -152,6 +153,28 @@ Why debias? An overconfident student keeps predicting higher than they actually 
 
 ---
 
+## Coverage vs Blueprint
+
+The Coverage vs Blueprint card closes the loop on the data that **Domain Coverage** already collects: it doesn't just show how far along each domain is — it asks whether actual effort is being spent in proportion to the exam blueprint.
+
+The card branches on `examProfile.blueprint.mode`:
+
+| Mode | What "expected" means | Card behavior |
+|---|---|---|
+| `weighted` | `domain.weight / sum(weights)` (% share) | Show effort vs expected per domain; flag deltas ≥ ±5pp |
+| `unweighted` | `1 / domains.length` (equal split) | Show effort vs equal share; flag deltas ≥ ±5pp |
+| `none` | — | Section is hidden entirely — nothing to compare against |
+
+**Effort share** = (completed days that touch domain D) / (sum of completed-day touches across all domains). Days that touch multiple domains — phase-exam days especially — count once per domain they cover. That's deliberate: a phase exam genuinely spans all the domains it covers, so its effort should be credited to each.
+
+**Topic matching** reuses the exact same `day.topics ↔ domain.taskStatements` overlap rule that **Domain Coverage** uses (extracted into a shared `computeDomainDays()` helper), so the two cards never disagree about which days touch which domains.
+
+**Sample-size floor.** Below 3 total completed days, the card shows a "not enough data yet" message and does not render bars or flags. Gap analysis on 1–2 days is dominated by which day was completed first, not by drift from the blueprint.
+
+**Flag threshold** is ±5 percentage points of share. Anything closer is labeled `on track`; anything farther is labeled `under-drilled` (effort below blueprint) or `over-drilled` (effort above). The footer lists the under-drilled domains explicitly so the coach can read it at a glance during session start.
+
+**Surfacing it during sessions.** The per-course `CLAUDE.md` (rendered from `CLAUDE.md.template`) includes a step in the session-start protocol that tells the coach to glance at this card and call out any under-drilled high-weight domain before announcing the next day's topic.
+
 ## Calibration chart
 
 The calibration chart plots predicted % vs actual % for each quiz/phase exam logged in `calibration[]`. Good calibration = points near the diagonal. Points above the diagonal = underconfident (actual > predicted). Points below = overconfident (actual < predicted).
@@ -186,6 +209,7 @@ renderProgressBar()
 renderPhaseBreakdown()
 renderCalibrationChart()
 renderDomainCoverage()
+renderCoverageGap()
 renderRecentQuizzes()
 renderWatchlist()
 renderRecentMisses()

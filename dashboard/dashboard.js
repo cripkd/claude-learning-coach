@@ -42,6 +42,7 @@
   renderPhaseBreakdown(state);
   renderCalibrationChart(state);
   renderDomainCoverage(state);
+  renderCoverageGap(state);
   renderRecentQuizzes(state);
   renderWatchlist(state);
   renderRecentMisses(state);
@@ -394,6 +395,27 @@ function renderCalibrationChart(state) {
 
 // ─── 6. Domain Coverage ──────────────────────────────────────────────────────
 
+/**
+ * For each domain, return the days whose `topics` overlap with the domain's
+ * `taskStatements`. Shared by renderDomainCoverage and renderCoverageGap so the
+ * matching rule lives in one place. A multi-domain day is counted under each
+ * domain it covers (intentional — phase-exam days are expected to span domains).
+ */
+function computeDomainDays(domains, phases) {
+  return (domains || []).map(domain => {
+    const days = [];
+    (phases || []).forEach(phase => {
+      (phase.days || []).forEach(day => {
+        const covers = (day.topics || []).some(t =>
+          (domain.taskStatements || []).includes(t)
+        );
+        if (covers) days.push(day);
+      });
+    });
+    return { domain, days };
+  });
+}
+
 function renderDomainCoverage(state) {
   const { domains, phases, examProfile } = state;
   const section = el('domain-coverage');
@@ -409,24 +431,12 @@ function renderDomainCoverage(state) {
     return;
   }
 
-  // Compute per-domain coverage by matching day.topics against domain.taskStatements
-  const coverage = domains.map(domain => {
-    const domainDays = [];
-    (phases || []).forEach(phase => {
-      (phase.days || []).forEach(day => {
-        const coversThisDomain = (day.topics || []).some(t =>
-          (domain.taskStatements || []).includes(t)
-        );
-        if (coversThisDomain) domainDays.push(day);
-      });
-    });
-
-    if (domainDays.length === 0) {
+  const coverage = computeDomainDays(domains, phases).map(({ domain, days }) => {
+    if (days.length === 0) {
       return { domain, coveragePct: null, complete: 0, total: 0 };
     }
-
-    const complete = domainDays.filter(d => d.status === 'complete').length;
-    return { domain, coveragePct: pct(complete, domainDays.length), complete, total: domainDays.length };
+    const complete = days.filter(d => d.status === 'complete').length;
+    return { domain, coveragePct: pct(complete, days.length), complete, total: days.length };
   });
 
   const subtitleText = blueprintMode === 'weighted'
@@ -462,6 +472,141 @@ function renderDomainCoverage(state) {
 
   html += '</div>';
   section.innerHTML = html;
+}
+
+// ─── 6b. Coverage vs Blueprint ───────────────────────────────────────────────
+
+/** Min completed-day touches before the gap signal is worth surfacing. */
+const COVERAGE_GAP_MIN_SAMPLE = 3;
+/** Absolute share-percentage-point delta that counts as a flag. */
+const COVERAGE_GAP_FLAG_THRESHOLD = 5;
+
+/**
+ * Compute per-domain effort share vs blueprint share, returning rows in the
+ * same order as `domains`. Skips entirely (returns null) when mode='none' or
+ * domains is empty. Caller decides how to render insufficient-sample cases.
+ *
+ *   expectedSharePct — from blueprint (weighted: weight/sumWeights; unweighted: 1/n)
+ *   actualSharePct   — completed-day touches for this domain / total touches
+ *   gapPct           — actual - expected (negative = under-served)
+ */
+function computeCoverageGap(domains, phases, blueprintMode) {
+  if (blueprintMode === 'none') return null;
+  if (!domains || domains.length === 0) return null;
+
+  const perDomain = computeDomainDays(domains, phases).map(({ domain, days }) => {
+    const completed = days.filter(d => d.status === 'complete').length;
+    const quizzes   = days.filter(d => d.quizScore && d.quizScore.total).length;
+    return { domain, completed, quizzes };
+  });
+
+  const totalCompleted = perDomain.reduce((s, r) => s + r.completed, 0);
+
+  // Expected share: weighted by declared blueprint, or equal split.
+  const weightSum = domains.reduce((s, d) => s + (d.weight || 0), 0);
+  const equalShare = 100 / domains.length;
+
+  const rows = perDomain.map(({ domain, completed, quizzes }) => {
+    const expectedSharePct = blueprintMode === 'weighted' && weightSum > 0
+      ? (domain.weight / weightSum) * 100
+      : equalShare;
+    const actualSharePct = totalCompleted > 0
+      ? (completed / totalCompleted) * 100
+      : 0;
+    const gapPct = actualSharePct - expectedSharePct;
+    return {
+      domain,
+      completed,
+      quizzes,
+      expectedSharePct: Math.round(expectedSharePct),
+      actualSharePct:   Math.round(actualSharePct),
+      gapPct:           Math.round(gapPct),
+    };
+  });
+
+  return { rows, totalCompleted, blueprintMode };
+}
+
+function renderCoverageGap(state) {
+  const { domains, phases, examProfile } = state;
+  const section = el('coverage-gap');
+  if (!section) return; // template may not include the section yet
+
+  const blueprintMode = (examProfile && examProfile.blueprint && examProfile.blueprint.mode) || 'weighted';
+
+  if (blueprintMode === 'none') {
+    section.innerHTML = '';
+    section.style.display = 'none';
+    return;
+  }
+
+  const gap = computeCoverageGap(domains, phases, blueprintMode);
+  if (!gap) {
+    section.innerHTML = '<h2 class="card-title">Coverage vs Blueprint</h2><p class="muted">No domains configured yet.</p>';
+    return;
+  }
+
+  const subtitleText = blueprintMode === 'weighted'
+    ? '(effort share vs blueprint weight)'
+    : '(effort share vs equal split)';
+
+  if (gap.totalCompleted < COVERAGE_GAP_MIN_SAMPLE) {
+    section.innerHTML = `
+      <h2 class="card-title">Coverage vs Blueprint <span class="subtitle">${subtitleText}</span></h2>
+      <p class="muted">Not enough completed days yet (${gap.totalCompleted} / ${COVERAGE_GAP_MIN_SAMPLE} needed). Gap analysis activates once a few days are complete.</p>
+    `;
+    return;
+  }
+
+  const underServed = gap.rows.filter(r => r.gapPct <= -COVERAGE_GAP_FLAG_THRESHOLD);
+
+  const rowsHtml = gap.rows.map(r => {
+    let statusLabel, statusCls;
+    if (r.gapPct <= -COVERAGE_GAP_FLAG_THRESHOLD) {
+      statusLabel = 'under-drilled'; statusCls = 'bad';
+    } else if (r.gapPct >= COVERAGE_GAP_FLAG_THRESHOLD) {
+      statusLabel = 'over-drilled'; statusCls = 'warn';
+    } else {
+      statusLabel = 'on track'; statusCls = 'good';
+    }
+
+    return `
+      <tr>
+        <td>${r.domain.name}</td>
+        <td class="numeric">${r.actualSharePct}%</td>
+        <td class="numeric muted">${r.expectedSharePct}%</td>
+        <td class="numeric ${statusCls}">${signed(r.gapPct)}pp</td>
+        <td class="${statusCls}">${statusLabel}</td>
+      </tr>
+    `;
+  }).join('');
+
+  let footerHtml;
+  if (underServed.length === 0) {
+    footerHtml = `<p class="coverage-gap-footer muted">All domains within ±${COVERAGE_GAP_FLAG_THRESHOLD}pp of blueprint. Effort is tracking the blueprint so far.</p>`;
+  } else {
+    const items = underServed
+      .map(r => `<strong>${r.domain.id}</strong> (${r.actualSharePct}% effort vs ${r.expectedSharePct}% expected, ${signed(r.gapPct)}pp)`)
+      .join('; ');
+    footerHtml = `<p class="coverage-gap-footer bad">Under-drilled vs blueprint: ${items}.</p>`;
+  }
+
+  section.innerHTML = `
+    <h2 class="card-title">Coverage vs Blueprint <span class="subtitle">${subtitleText}</span></h2>
+    <table class="coverage-gap-table">
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th class="numeric">Effort</th>
+          <th class="numeric">Expected</th>
+          <th class="numeric">Δ</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    ${footerHtml}
+  `;
 }
 
 // ─── 7. Recent Quizzes ───────────────────────────────────────────────────────
