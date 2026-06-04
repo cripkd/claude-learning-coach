@@ -13,28 +13,36 @@
 # ── Internal design notes (not user-facing) ──────────────────
 learning-coach-design-doc.md
 
-# ── Course workspaces (personal study data) ──────────────────
+# ── Course & project workspaces (personal study/build data) ──
 # courses/ contains session logs, quiz records, source materials,
-# and progress data. This is private and must not be published
-# to the public template repo.
+# and progress data. projects/ contains long-running personal build
+# workspaces (e.g., MLOps build-along, CIFAR-10 build-along). Both
+# are private and must not be published to the public template repo.
+#
+# Exception: courses/example-saa-c03/ is the worked-example fixture
+# (synthetic data) used for adoption and as the canonical regression
+# fixture for scripts/build-dashboard.mjs — see package.json's
+# "validate-example" script. It IS committed.
 #
 # Students who want to track their own progress in a private fork
-# can remove this line from their personal copy of .gitignore.
-courses/
+# can remove these lines from their personal copy of .gitignore.
+courses/*
+!courses/example-saa-c03/
+projects/
 
 # ── Root-level files left over from /init-coach test runs ────
-# These should not exist in the template repo. Delete them with:
-#   rm memory.md progress.md cheatsheet.md misses.md cases.md \
-#      SOURCES.md DIAGNOSTIC.md CALIBRATION.md
+# Leading "/" anchors to the repo root only — otherwise these patterns also
+# ignore the templates under starter-files/, which broke the template repo
+# (a fresh clone had no starter files for /init-coach to copy).
 # The root CLAUDE.md is the static dispatcher — it IS committed.
-memory.md
-progress.md
-cheatsheet.md
-misses.md
-cases.md
-SOURCES.md
-DIAGNOSTIC.md
-CALIBRATION.md
+/memory.md
+/progress.md
+/cheatsheet.md
+/misses.md
+/cases.md
+/SOURCES.md
+/DIAGNOSTIC.md
+/CALIBRATION.md
 
 # ── Node (if ever adding a build step — v1 has none) ─────────
 node_modules/

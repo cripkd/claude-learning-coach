@@ -17,6 +17,14 @@
 
 Mixing them in one file forces the brain to switch modes mid-scan. Worse, the two writing styles pollute each other: trap entries written as rules sound generic; rule entries written as trap patterns feel overly narrow. Keeping them separate also makes it easy to see at a glance which file to open before a practice session vs before an endgame drill.
 
+### 1a. Two miss types: trap vs confusion
+
+Within `misses.md`, each miss carries an explicit `missType` — `trap` (a scenario distractor that fooled you) or `confusion` (you mixed up two recall items, e.g., S3 storage class A vs B). The two drill differently: a trap is drilled by replaying the scenario shape with the distractor present; a confusion is drilled head-to-head on the A-vs-B discrimination. Forcing both into one shape either dilutes the trap drill (a pure confusion has no scenario to replay) or under-utilises the confusion (no pair → no A-vs-B reps). Bifurcating at the record level keeps each drill mode pure.
+
+### 1b. Structured dedup over `misses[]`, not prose rescan
+
+Deduplication and recurrence detection operate on `state.json`'s `misses[]` array — structured fields (`missType`, normalised label, `confusionPair`) — not on prose in `misses.md`. A prose-driven rescan is fragile (a paraphrase defeats it) and forces the coach to re-read the entire file before every write. With structured records, "this miss recurred" is a field comparison; promotion to the watchlist is then deterministic and idempotent. The `.md` file is a rendered view; the canonical truth is the structured array.
+
 ---
 
 ## 2. Repeat-Miss Watchlist with auto-promotion
@@ -27,9 +35,9 @@ Mixing them in one file forces the brain to switch modes mid-scan. Worse, the tw
 
 **Why:** SRS is the right algorithm in theory but adds tooling friction and a cold-start problem (you need enough cards before the intervals pay off). The Watchlist is informal SRS: it surfaces the same item every time you open `misses.md`, which happens to be the right interval when you're in a compressed prep cycle. The key insight is that the Watchlist doesn't need a scheduler — it self-prioritizes by the fact that it's at the bottom of a file the coach reads every session.
 
-**Format:** Each Watchlist item carries the occurrence count and full provenance (e.g., `[REPEAT 3x — Day 10, Day 16, Day 21]`) so the student can trace the exact scenarios where the miss recurred.
+**Format:** Each Watchlist item carries occurrence count, full provenance (e.g., `[REPEAT 3× — Day 10, Day 16, Day 21]`), and a missType badge (TRAP or CONFUSION). For confusions the A vs B pair renders inline; for traps the diagnostic question is the one-sentence handle the student applies to recognise the pattern in a new scenario.
 
-**Promotion rule:** A miss is promoted on its 2nd occurrence. The original domain entry is updated (not duplicated). The Watchlist entry holds the diagnostic question — a one-sentence handle the student applies to recognize the trap in a new scenario.
+**Promotion rule:** A miss is promoted on its 2nd occurrence. Promotion is build-derived: `watchlist[]` is recomputed from `misses[]` by `scripts/build-dashboard.mjs` on every state write, so the coach never hand-maintains it and any inconsistent hand-edit is corrected on the next build. Drilling branches on `missType` — trap entries replay the scenario shape; confusion entries drill the pair head-to-head.
 
 ---
 
@@ -91,6 +99,38 @@ The "out-of-source" flag is equally important: it prevents the coach from confab
 
 **Why inline JSON instead of `fetch('data/state.json')`:** `file://` URLs block `fetch` due to browser CORS policy. Inlining the JSON inside a `<script type="application/json">` block lets the student double-click the HTML file and view the dashboard with zero server setup.
 
-**Why regenerate on every state change:** The dashboard is a snapshot, not a live view. Regenerating it explicitly (read template → substitute JSON → write output) means the student always sees state that matches the latest structural update, and the template file stays clean for future regenerations.
+**Why rebuild on every state change:** The dashboard is a snapshot, not a live view. A `.claude/settings.json` PostToolUse hook runs `scripts/build-dashboard.mjs {slug}` whenever `courses/{slug}/data/state.json` is written — read template → migrate-if-needed → validate against the schema → substitute JSON → write output. The student always sees state matching the latest structural update; the template file stays clean for future builds; invalid state never produces a stale or partial dashboard (the previous `index.html` survives until the next valid write).
 
-**Sync discipline:** Any structural update (mark day complete, record a score, add a miss, update readiness) must update the `.md` file, `data/state.json`, AND `dashboard/index.html` in the same response. Partial updates leave the dashboard stale and create silent state drift. See `CLAUDE.md.template` for the full sync rule.
+**Sync discipline:** `data/state.json` is canonical; the `.md` files are rendered views or human annotations. Any structural update must write `state.json` (and the relevant `.md` view) in the same response. The dashboard rebuild is automatic — the PostToolUse hook handles it after schema validation, so partial dashboards are impossible by construction. See `CLAUDE.md.template` for the full write rule.
+
+---
+
+## 8. `examProfile` as a parameterization descriptor
+
+**The choice:** Variability across MCQ exams (blueprint shape, scoring model, option count, single- vs multi-correct, scenario-vs-recall mix) is captured in one structured `examProfile` block on `state.json`. Phase planning, quiz generation, calibration math, and dashboard rendering all branch on its fields.
+
+**Rejected alternatives:**
+- A one-size-fits-all coach tuned to AWS/Azure/GCP CCA-shape exams — works for ~70% of cert exams, falls apart on the rest (scaled scoring, multi-correct, recall-heavy mixes, exams without a published blueprint).
+- A forest of `if`-branches sprinkled through `CLAUDE.md.template` and the build script — works once, drifts whenever a new variant lands.
+
+**Why a descriptor:** the variation is small (six enum-or-constant axes) and stable (it doesn't change across sessions). Capturing it in one structured object lets downstream logic branch once on a known field rather than re-deriving the exam shape from prose every time. Adding a new variant means filling in a new enum value, not rewriting the coach.
+
+The descriptor lives in `state.json` (not `CLAUDE.md` prose) because it's structured data the build script reads — keeping it out of prose avoids the same fact being written two ways. The schema marks every axis as required, so a course always commits to a complete descriptor; there is no ambiguous "unset" state.
+
+**Why a const for `profile` and `adaptive`:** out-of-scope categories (non-MCQ formats, computerized-adaptive exams) are pinned as JSON constants rather than absent fields. A schema-level no-op like `adaptive: false` makes the boundary explicit — a future state file claiming `adaptive: true` would fail validation, which is the right behavior because the project intentionally doesn't support CAT.
+
+Full reference (every axis, defaults, what each one enables): [`docs/EXAM-PROFILES.md`](EXAM-PROFILES.md).
+
+---
+
+## 9. Rolling-summary `memory.md`
+
+**The choice:** `memory.md` has two sections — a top **Standing Summary** that synthesizes everything older than the recent window, and a **Recent Entries** section holding the last **N = 7** dated entries verbatim. At session end the coach appends a new entry; if Recent Entries now holds more than 7, the oldest is folded (synthesized) into the Standing Summary and removed from the verbatim list. Session start reads only these two sections, not the file's pre-fold history.
+
+**Rejected alternative:** Unbounded append-only log.
+
+**Why:** The session protocol reads `memory.md` at the start of every session. Over a 30-day sprint, an unbounded log grows monotonically — every session's context (and the cost of reading it) gets larger. The Standing Summary is the bounded artifact a future session actually needs: persistent misses, calibration trajectory, domain coverage status. The verbatim last 7 entries preserve the texture of recent work (specific quiz scores, day-by-day plans) without paying for the texture of weeks-old work.
+
+**Why fold instead of truncate:** Pure truncation drops information silently. Folding requires synthesis — the oldest entry's substance is integrated into the Standing Summary first, then removed from the verbatim list. The rule "no information unique to the dropped entry is lost" is the discipline that makes the cap safe.
+
+**Why memory.md is exempt from the structural-sync rule:** It is narrative, not structured. Nothing in `state.json` is derivable from it; the dashboard does not depend on it. Folding rewrites the Standing Summary section in place — the only place in the project where the coach is allowed to rewrite (rather than append to) a markdown file.

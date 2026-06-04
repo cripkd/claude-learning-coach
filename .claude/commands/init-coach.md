@@ -54,12 +54,17 @@ Store: `STUDENT_BACKGROUND`.
 
 Store: `LEARNING_STYLE`.
 
-### Q6 — Domains
-> What domains or topic areas does this exam cover? List them with their weights if you know them.
-> Example: "D1: Security — 30%, D2: Reliability — 26%, D3: Cost — 20%, D4: Performance — 14%, D5: Operational — 10%"
-> If you don't know the weights, just list the domains and I'll distribute evenly.
+### Q6 — Domains and blueprint
+> What domains or topic areas does this exam cover? Three ways to answer:
+> - **With weights** — `"D1: Security — 30%, D2: Reliability — 26%, D3: Cost — 20%, D4: Performance — 14%, D5: Operational — 10%"`. The phase plan front-loads by weight, then is re-ordered by the diagnostic.
+> - **Without weights** — just list the domains. The plan allocates days equally and is ordered (initially) in your listed order, then re-ordered by the diagnostic to put weaker domains first.
+> - **No published blueprint** — say `"no blueprint"` or `"I don't know"`. The plan starts flat (no domain breakdown); domains and topics emerge from the diagnostic and early sessions.
 
-Store: `DOMAINS[]` — array of `{id, name, weight}`. If weights aren't provided, distribute evenly (100 / n, rounded). If weights don't sum to 100%, warn: "Your domain weights sum to X%, not 100%. I'll proceed — the phase plan will still work, but double-check the official exam blueprint."
+Store: `BLUEPRINT_MODE`, `DOMAINS[]`.
+
+- If the student provided weights → `BLUEPRINT_MODE = "weighted"`. `DOMAINS[]` keeps the declared weights. If weights don't sum to 100%, warn: "Your domain weights sum to X%, not 100%. I'll proceed — the phase plan will still work, but double-check the official exam blueprint."
+- If the student listed domains without weights → `BLUEPRINT_MODE = "unweighted"`. `DOMAINS[]` assigns each domain `weight = round(100 / n)` (equal weight).
+- If the student said "no blueprint" or equivalent → `BLUEPRINT_MODE = "none"`. `DOMAINS[] = []`. The phase plan is generic; the diagnostic and the first few sessions will populate domains as topics surface, after which the course behaves like `unweighted`.
 
 ### Q7 — Case mode
 > Does this exam test integrated case reasoning (scenario-based questions that require applying multiple concepts together), or is it primarily recall-based (definitions, formulas, direct knowledge retrieval)?
@@ -77,6 +82,24 @@ If **recall:** Note that the case-practice phase will be skipped and those days 
 
 Store: `CASE_MODE` = `"exam-defined"` | `"pool-derived"` | `"recall"`. Store pool definitions or scenario list as needed for `cases.md`.
 
+### Q7a — Scoring & question format (optional — defaults cover most cert exams)
+
+Ask only if there's any signal the exam is **not** the default shape (fixed-percent cutoff, 4 options per question, single correct). If the student didn't mention any of these in earlier answers, ask once with this prompt and accept *"default"* as a complete answer:
+
+> A few quick exam-format details (skip with "default" if you're not sure — defaults match AWS / Azure / GCP / Anthropic-style exams):
+> - **Scoring:** *fixed percent* (e.g., "you need 72%"), *scaled score* (e.g., "you need 720 of 1000"), or *pass/fail with no published cut*?
+> - **Options per question:** 4 (default) or 5?
+> - **Any multiple-correct questions?** No (default) — or yes, in which case: all-or-nothing scoring (whole question right) or partial credit?
+
+Parse the answer and store:
+
+- `SCORING_MODEL`: `"fixed_percent"` (default) | `"scaled"` | `"pass_fail_unknown"`
+- `SCALE_MIN`, `SCALE_MAX`: numbers from a scaled answer (e.g., `100` and `1000` for AWS); both `null` for the other models. If the student said "scaled" but didn't give the range, ask for it as a follow-up.
+- `OPTION_COUNT`: `4` (default) or `5`. Reject anything else; if the student claims another count, warn that it's untested and proceed with 4.
+- `MULTIPLE_CORRECT`: `false` (default) | `true`. If `true`, also store `PARTIAL_CREDIT`: `"all_or_nothing"` (default) | `"partial"`.
+
+If the answer was *"default"* (or the student skipped this question), use every default above.
+
 ### Q8 — Study days
 > How many total study days do you have available before the exam (or as your initial learning budget)?
 
@@ -88,6 +111,15 @@ Store: `TOTAL_DAYS` (integer).
 > Do you have study materials ready to add? If yes, tell me the filenames or paths — drop them into `sources/` and I'll reference them. If not, say "later" and I'll set up the structure for you to fill in.
 
 Store: `SOURCES[]` — list of `{path, label, priority}` if provided. If "later", leave `sources/` empty and note it in the setup summary.
+
+### Q9a — Question bank (optional)
+> Do you have a question bank for this exam? A bank is **real** practice questions (verbatim from a vendor pack, course-pack questions, an official sample set, or a prior-exam pool) — *not* questions you'd write yourself. The coach draws from the bank during quizzes alongside synthetic generation, and weights bank results 2× synthetic when computing readiness (closer-to-real-exam signal).
+>
+> If yes, drop the source files into `bank/` (format spec: `templates/question-bank.md`) and tell me their filenames. If no, say "no" and I'll set up an empty `bank/` directory — you can add a bank later by following the same format.
+
+Store: `BANK_FILES[]` — list of `{path, label, questionCount, domains, retrievedDate}` if provided. If "no" or omitted, leave `bank/` empty.
+
+The bank is fully **optional**. Absence of bank files = today's behavior (synthetic generation only). Do not prompt the student for a bank if they've already said "no" earlier or if they don't have one ready.
 
 ### Q10 — Reference resources
 > Any specific courses, documentation sites, or community resources to link in daily sessions? (Optional — examples: "official docs at docs.example.com", "Course X on Platform Y")
@@ -115,6 +147,7 @@ courses/{COURSE_SLUG}/
 courses/{COURSE_SLUG}/data/
 courses/{COURSE_SLUG}/dashboard/
 courses/{COURSE_SLUG}/sources/
+courses/{COURSE_SLUG}/bank/        ← optional, kept even when empty so the convention is discoverable
 courses/{COURSE_SLUG}/quizzes/
 ```
 
@@ -128,12 +161,12 @@ All output files for this course (CLAUDE.md, memory.md, progress.md, state.json,
 
 ## Step 3: Generate the phase plan
 
-Use the collected answers to construct a structured phase plan. Apply this algorithm:
+Use the collected answers to construct a structured phase plan. The base 4-phase shape and day-count formulas are the same across blueprint modes; what changes is the **domain assignment** and **day-allocation** rules inside Phases 1 and 2.
 
 **Working days** = `TOTAL_DAYS − 3` (last 3 days are always reserved for the endgame protocol in `docs/ENDGAME.md`)
 
 **If TOTAL_DAYS < 10:** use a 2-phase compressed plan:
-- Phase 1: `floor(workingDays * 0.6)` days — all domains, front-loaded by weight
+- Phase 1: `floor(workingDays * 0.6)` days — content (per blueprint-mode rule below)
 - Phase 2: `workingDays − Phase1days` days — simulation and drill
 - No dedicated case-practice phase; no diagnostic day built in
 - Still reserve day 1 for orientation and diagnostic
@@ -147,20 +180,40 @@ Calculate phase day counts from `workingDays`:
 | Phase 4 | Simulation & Drill (or Final Drill if recall) | `max(3, ceil(workingDays × 0.15))` | Last phase before endgame |
 | Phase 3 | Case Practice (or Extended Drill if recall) | `max(3, ceil(workingDays × 0.20))` | Skip case label if recall |
 | Phase 1+2 content | — | `workingDays − P3days − P4days` | Split between Phase 1 and Phase 2 |
-| Phase 1 | Core Domains | `ceil(contentDays × 0.55)` | Highest-weight domains |
-| Phase 2 | Remaining Domains | `contentDays − P1days` | Remaining domains |
+| Phase 1 | Core Domains | `ceil(contentDays × 0.55)` | See blueprint-mode rule below |
+| Phase 2 | Remaining Domains | `contentDays − P1days` | See blueprint-mode rule below |
 
-**Domain assignment to phases:**
-- Sort domains by weight descending
-- Phase 1 covers the top domains by weight until their cumulative weight ≥ 55% of total weight (or top half if weights are equal)
-- Phase 2 covers the remaining domains
-- If only 1–2 domains exist: Phase 1 covers all domains with more depth; Phase 2 focuses on integration
+**Domain assignment and day allocation — branch on `BLUEPRINT_MODE`:**
 
-**Day allocation within Phase 1 and Phase 2:**
-- Distribute days among the phase's domains proportionally to their declared weights
-- Minimum 1 day per domain
-- Each phase ends with 1 phase-exam day (included in the phase day count, not additional)
-- If a domain has multiple task statements, spread them across multiple days (1–2 task statements per day)
+**`weighted`** (current behavior — CCA-shaped exams with a published weighted blueprint):
+- Sort domains by weight descending.
+- Phase 1 covers the top domains by weight until their cumulative weight ≥ 55% of total weight (or top half if weights are equal).
+- Phase 2 covers the remaining domains.
+- Distribute days inside each phase **proportionally to declared weights**, minimum 1 day per domain.
+- Phase titles use the names of the dominant domain(s) covered.
+
+**`unweighted`** (domains listed but no published weights):
+- Keep domains in declared order.
+- Phase 1 covers the first `ceil(n/2)` domains; Phase 2 covers the rest.
+- Distribute days inside each phase **equally** across that phase's domains, minimum 1 day per domain.
+- Phase titles use the names of the domains covered (e.g., "Phase 1: D1 + D2 + D3").
+- The diagnostic will re-order domains so the weakest are front-loaded — see "Post-diagnostic rebalancing" below.
+
+**`none`** (no published blueprint — domains and topics emerge later):
+- `DOMAINS[]` is empty. No per-domain front-loading.
+- Phase 1 = "Foundations" (broad coverage). Phase 2 = "Building". Phase 3/4 unchanged.
+- Days inside Phase 1 and Phase 2 carry generic placeholders (`topics: []`, `notes: "TBD by diagnostic and early sessions"`).
+- The diagnostic creates the initial domain/topic structure; the coach populates `domains[]` and `days[].topics` during the first sessions. After the diagnostic, the course behaves as `unweighted`.
+
+**Shared (all modes):**
+- Each phase ends with 1 phase-exam day (included in the phase day count, not additional).
+- If a domain has multiple task statements, spread them across multiple days (1–2 task statements per day).
+- The 1–2 domain edge case still applies for `weighted` and `unweighted`: if only 1–2 domains exist, Phase 1 covers all domains with more depth and Phase 2 focuses on integration.
+
+**Post-diagnostic rebalancing (referenced here, executed by the coach after the diagnostic runs):**
+- `weighted`: the diagnostic may swap which phase a weak domain lands in, but day counts stay proportional to declared weights.
+- `unweighted`: the diagnostic re-orders domains by score ascending (weakest first), then re-splits across phases. Day counts stay equal.
+- `none`: the diagnostic populates `domains[]`; after it does, the course follows the `unweighted` rebalancing rule.
 
 **Phase titles:**
 - Phase 1: use the name of the primary domain(s) covered, e.g., "Phase 1: Core Architecture & Security"
@@ -236,6 +289,7 @@ For each file in `starter-files/`, copy it to `courses/{COURSE_SLUG}/` and subst
 **`starter-files/SOURCES.md` → `SOURCES.md`**
 - No placeholders to replace
 - If the student provided source files in Q9: add entries to the appropriate priority tier sections based on the information provided. If priority wasn't declared per source, ask: "Should I put these under Primary, Secondary, or Tertiary?"
+- If the student provided bank files in Q9a: add one entry per file under the **Question Bank** section in the format `- [filename.md](bank/filename.md) — Description, N Qs, domains, retrieved YYYY-MM-DD`. If they didn't provide a bank, leave the section's example comments in place.
 
 **`starter-files/DIAGNOSTIC.md` → `DIAGNOSTIC.md`**
 - Replace `{{DIAGNOSTIC_DATE}}` with `"TBD — run 'run diagnostic' to fill in"`
@@ -253,6 +307,7 @@ For each file in `starter-files/`, copy it to `courses/{COURSE_SLUG}/` and subst
 
 **Also ensure these exist** (already created in Step 2):
 - `courses/{COURSE_SLUG}/sources/` — with a `.gitkeep` if empty
+- `courses/{COURSE_SLUG}/bank/` — with a `.gitkeep` if empty (the convention is discoverable even without files)
 - `courses/{COURSE_SLUG}/quizzes/` — with a `.gitkeep` if empty
 
 ---
@@ -264,12 +319,21 @@ Write a fully populated `courses/{COURSE_SLUG}/data/state.json` using the schema
 Key field values:
 
 ```
-schemaVersion: "1.0"
+schemaVersion: "2.3"
 exam.fullName: EXAM_FULL_NAME
 exam.shortName: EXAM_SHORT_NAME
 exam.date: EXAM_DATE (null if "ongoing")
-exam.passMarkPercent: [ask the student if known; default 72 if not provided]
+exam.passMarkPercent: [ask the student if known; default 72 if not provided. Must be ≥ 1 — never write 0.72 (use 72).]
 exam.caseMode: CASE_MODE
+
+examProfile:
+  profile: "mcq"
+  scenarioRecallRatio: 1.0 if CASE_MODE in ("exam-defined","pool-derived"); 0.0 if CASE_MODE == "recall"
+  blueprint: { mode: BLUEPRINT_MODE }                              # "weighted" | "unweighted" | "none" (from Q6)
+  scoring: { model: SCORING_MODEL, scaleMin: SCALE_MIN, scaleMax: SCALE_MAX }   # from Q7a; defaults: fixed_percent / null / null
+  questionFormat: { optionCount: OPTION_COUNT, multipleCorrect: MULTIPLE_CORRECT, partialCredit: PARTIAL_CREDIT }
+    # from Q7a; defaults: 4 / false / "all_or_nothing"
+  adaptive: false
 
 student.name: STUDENT_NAME
 student.learningStyle: LEARNING_STYLE
@@ -279,10 +343,13 @@ plan.startDate: today's date
 plan.currentDay: 1
 plan.daysRemainingUntilExam: days between today and EXAM_DATE (null if ongoing)
 
-domains[]: one entry per domain from Q6
+domains[]: one entry per domain from Q6 (empty array if BLUEPRINT_MODE = "none")
   id: "D1", "D2", ...
   name: domain name
-  weight: declared weight
+  weight:
+    - weighted   → declared weight (as given in Q6)
+    - unweighted → round(100 / n) where n = number of domains (equal across domains)
+    - none       → N/A; domains[] is empty until the diagnostic populates it
   taskStatements: [] (empty for now; student fills in or coach populates during sessions)
 
 phases[]: one entry per phase from Step 2
@@ -320,25 +387,42 @@ diagnostic:
 readiness:
   lastUpdated: today's date
   coldWaterEstimatePercent: null
+  summary: ""
+  # Everything else (margin, stdDev, probability, bias, sampleSize, debiased, band) is
+  # recomputed by scripts/build-dashboard.mjs on every build. Initial defaults that the
+  # script will overwrite immediately:
   marginOverCutPercent: null
   noiseModelStdDevPercent: 7
   passProbabilityRoughEstimate: null
-  summary: ""
+  biasCorrectionPercent: 0
+  sampleSize: 0
+  debiasedEstimatePercent: null
+  qualitativeBand: null
 
 lastUpdated: today's date + "T00:00:00Z"
 ```
 
+`schemaVersion` is `"2.3"`.
+
 **Exam pass mark:** if the student didn't mention it during Q6 and it's a well-known exam, use the known pass mark. If unknown, default to 72 and add a note: "I've defaulted the pass mark to 72% — update `exam.passMarkPercent` in `data/state.json` if you know the actual value."
+
+**`examProfile` is an internal contract** — do not surface it to the student during the interview. It is fully derivable from the interview answers (CASE_MODE drives scenarioRecallRatio; everything else defaults to v1-equivalent values: weighted blueprint, fixed-percent scoring, 4 options, single-correct). Later tasks will branch on these fields; for now they just need to be present so the state validates.
 
 ---
 
-## Step 7: Regenerate `courses/{COURSE_SLUG}/dashboard/index.html`
+## Step 7: Build `courses/{COURSE_SLUG}/dashboard/index.html`
 
-1. Read `templates/dashboard-template.html` (repo root)
-2. Replace `__STATE_PLACEHOLDER__` with the literal contents of `courses/{COURSE_SLUG}/data/state.json`
-3. Write the result to `courses/{COURSE_SLUG}/dashboard/index.html`
+Writing `data/state.json` in Step 6 already triggers the PostToolUse hook in `.claude/settings.json`, which rebuilds the dashboard automatically. If the hook did not run (e.g., dispatcher disabled, or you're running a manual setup outside Claude Code), invoke the build script directly:
+
+```
+node scripts/build-dashboard.mjs {COURSE_SLUG}
+```
+
+The script validates `data/state.json` against `templates/state-schema.json` and refuses to write a partial dashboard on validation failure. If you see a validation error, fix the offending field in `state.json` and re-run.
 
 Confirm to the student: "Dashboard is ready — open `courses/{COURSE_SLUG}/dashboard/index.html` in your browser to view your starting state."
+
+**Prerequisite:** `npm install` has been run at least once in the repo root (installs `ajv` for schema validation). If `node_modules/` is missing, instruct the student to run `npm install` from the repo root before opening the dashboard.
 
 ---
 
@@ -379,6 +463,7 @@ Files written:
   courses/[COURSE_SLUG]/CALIBRATION.md         ← ready to fill
   courses/[COURSE_SLUG]/data/state.json        ← structured state initialized
   courses/[COURSE_SLUG]/dashboard/index.html   ← dashboard rendered
+  courses/[COURSE_SLUG]/bank/                  ← [bank-count] bank files (or empty)
 
 Next steps:
 1. Drop your study materials into courses/[COURSE_SLUG]/sources/ and fill in SOURCES.md
@@ -387,6 +472,7 @@ Next steps:
 4. When ready, say "let's go" or "Day 1" to start
 
 [If sources were not provided:] I've left sources/ empty — add your materials before running the diagnostic.
+[If bank was not provided:] No question bank declared — quizzes will be coach-generated. You can drop a bank into bank/ later (format: templates/question-bank.md); the coach picks it up automatically.
 [If pass mark was defaulted:] Double-check exam.passMarkPercent in data/state.json (currently 72%).
 [If domain weights were estimated:] Double-check domain weights in data/state.json against the official exam blueprint.
 ```
@@ -412,9 +498,18 @@ Apply these rules silently (without asking again) when generating the plan:
 - Use the 2-phase compressed plan described in Step 2
 - Warn in the summary: "Compressed schedule — no dedicated case-practice phase. The endgame playbook (docs/ENDGAME.md) still applies for the last 3 days."
 
-**Domain weights don't sum to 100%:**
+**Domain weights don't sum to 100% (weighted mode only):**
 - Proceed with the declared weights (proportional allocation still works)
 - Note in the summary: "Domain weights sum to [X]% — phase allocation is proportional to declared weights. Update data/state.json if you get the official breakdown."
+
+**Unweighted blueprint:**
+- Set `examProfile.blueprint.mode = "unweighted"` and assign each domain `weight = round(100/n)`.
+- Note in the summary: "No published weights — domains get equal allocation (`round(100/n)%` each). The diagnostic will re-order the phase plan to front-load your weakest domains."
+
+**No blueprint declared:**
+- Set `examProfile.blueprint.mode = "none"` and `domains[] = []`.
+- Use the flat-plan variant in Step 3 (Phase 1 "Foundations", Phase 2 "Building"); leave each day's `topics: []` and `notes: "TBD by diagnostic and early sessions"`.
+- Note in the summary: "No blueprint declared — domains and topics emerge from the diagnostic and the first few sessions. Once `domains[]` is populated, the course will rebalance like an unweighted blueprint."
 
 **No source materials yet:**
 - Leave `sources/` empty; leave `SOURCES.md` with only the format instructions

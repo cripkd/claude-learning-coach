@@ -1,0 +1,380 @@
+{
+  "schemaVersion": "2.3",
+  "exam": {
+    "fullName": "AWS Solutions Architect Associate (Example)",
+    "shortName": "SAA-C03",
+    "date": "2026-06-25",
+    "passMarkPercent": 72,
+    "caseMode": "pool-derived"
+  },
+  "examProfile": {
+    "profile": "mcq",
+    "scenarioRecallRatio": 1,
+    "blueprint": {
+      "mode": "weighted"
+    },
+    "scoring": {
+      "model": "fixed_percent",
+      "scaleMin": null,
+      "scaleMax": null
+    },
+    "questionFormat": {
+      "optionCount": 4,
+      "multipleCorrect": false,
+      "partialCredit": "all_or_nothing"
+    },
+    "adaptive": false
+  },
+  "student": {
+    "name": "Alex",
+    "learningStyle": "Concept-first, then drilling"
+  },
+  "plan": {
+    "totalDays": 5,
+    "startDate": "2026-05-31",
+    "currentDay": 5,
+    "daysRemainingUntilExam": 21
+  },
+  "domains": [
+    {
+      "id": "D1",
+      "name": "Design Secure Architectures",
+      "weight": 30,
+      "taskStatements": [
+        "D1-T1 IAM core: users, roles, policies, SCPs",
+        "D1-T2 Data protection: KMS, encryption at rest/transit",
+        "D1-T3 Network security: VPC, SG, NACL, WAF"
+      ]
+    },
+    {
+      "id": "D2",
+      "name": "Design Resilient Architectures",
+      "weight": 26,
+      "taskStatements": [
+        "D2-T1 High availability: Multi-AZ, ASG, ELB",
+        "D2-T2 Decoupling: SQS, SNS, EventBridge"
+      ]
+    },
+    {
+      "id": "D3",
+      "name": "Design High-Performing Architectures",
+      "weight": 24,
+      "taskStatements": [
+        "D3-T1 Caching and compute: ElastiCache, CloudFront, EC2 sizing"
+      ]
+    },
+    {
+      "id": "D4",
+      "name": "Design Cost-Optimized Architectures",
+      "weight": 20,
+      "taskStatements": [
+        "D4-T1 Storage and compute cost: S3 tiers, Spot/RI/SP"
+      ]
+    }
+  ],
+  "phases": [
+    {
+      "id": "P1",
+      "title": "Phase 1: Security & Resilience",
+      "dayRange": [
+        1,
+        3
+      ],
+      "days": [
+        {
+          "day": 1,
+          "date": "2026-05-31",
+          "topics": [
+            "D1-T1 IAM core: users, roles, policies, SCPs"
+          ],
+          "status": "complete",
+          "quizScore": {
+            "correct": 7,
+            "total": 10,
+            "percent": 70
+          },
+          "notes": "IAM core delivered; one trap miss on public-S3 vs bucket-policy."
+        },
+        {
+          "day": 2,
+          "date": "2026-06-01",
+          "topics": [
+            "D1-T2 Data protection: KMS, encryption at rest/transit",
+            "D1-T3 Network security: VPC, SG, NACL, WAF"
+          ],
+          "status": "complete",
+          "quizScore": {
+            "correct": 8,
+            "total": 10,
+            "percent": 80
+          },
+          "notes": "KMS/network sec; first simplest-sufficient-fix miss surfaced."
+        },
+        {
+          "day": 3,
+          "date": "2026-06-02",
+          "topics": [
+            "D2-T1 High availability: Multi-AZ, ASG, ELB",
+            "D2-T2 Decoupling: SQS, SNS, EventBridge"
+          ],
+          "status": "complete",
+          "quizScore": null,
+          "notes": "Day topics + Phase 1 exam; SQS standard-vs-FIFO confusion appeared on exam Q4."
+        }
+      ],
+      "phaseExam": {
+        "completed": true,
+        "date": "2026-06-02",
+        "score": 8,
+        "total": 12,
+        "notes": "8/12 (67%) — below cold-water estimate of 75%; overconfidence pattern reinforced."
+      }
+    },
+    {
+      "id": "P2",
+      "title": "Phase 2: Performance & Cost — Drill",
+      "dayRange": [
+        4,
+        5
+      ],
+      "days": [
+        {
+          "day": 4,
+          "date": "2026-06-03",
+          "topics": [
+            "D3-T1 Caching and compute: ElastiCache, CloudFront, EC2 sizing"
+          ],
+          "status": "complete",
+          "quizScore": {
+            "correct": 7,
+            "total": 10,
+            "percent": 70
+          },
+          "notes": "Mixed quiz: 4 bank questions + 6 synthetic. SQS confusion repeated on bank Q2 → promoted to watchlist."
+        },
+        {
+          "day": 5,
+          "date": "2026-06-04",
+          "topics": [
+            "D4-T1 Storage and compute cost: S3 tiers, Spot/RI/SP"
+          ],
+          "status": "in-progress",
+          "quizScore": null,
+          "notes": "Cost-optimization concepts delivered; quiz + phase exam pending."
+        }
+      ],
+      "phaseExam": {
+        "completed": false,
+        "date": null,
+        "score": null,
+        "total": null,
+        "notes": ""
+      }
+    }
+  ],
+  "calibration": [
+    {
+      "date": "2026-05-31",
+      "label": "Day 1 quiz",
+      "predictedPercent": 75,
+      "actualPercent": 70,
+      "delta": -5,
+      "interpretation": "overconfident",
+      "source": "synthetic"
+    },
+    {
+      "date": "2026-06-01",
+      "label": "Day 2 quiz",
+      "predictedPercent": 80,
+      "actualPercent": 80,
+      "delta": 0,
+      "interpretation": "calibrated",
+      "source": "synthetic"
+    },
+    {
+      "date": "2026-06-02",
+      "label": "Phase 1 exam",
+      "predictedPercent": 75,
+      "actualPercent": 67,
+      "delta": -8,
+      "interpretation": "overconfident",
+      "source": "synthetic"
+    },
+    {
+      "date": "2026-06-03",
+      "label": "Day 4 quiz (bank)",
+      "predictedPercent": 75,
+      "actualPercent": 70,
+      "delta": -5,
+      "interpretation": "overconfident",
+      "source": "bank"
+    },
+    {
+      "date": "2026-06-03",
+      "label": "Day 4 quiz (synthetic)",
+      "predictedPercent": 75,
+      "actualPercent": 78,
+      "delta": 3,
+      "interpretation": "underconfident",
+      "source": "synthetic"
+    }
+  ],
+  "misses": [
+    {
+      "id": "miss-0001",
+      "label": "Public S3 vs bucket policy",
+      "domain": "D1",
+      "missType": "trap",
+      "confusionPair": null,
+      "occurrences": [
+        {
+          "date": "2026-05-31",
+          "location": "Day 1 Q3"
+        }
+      ],
+      "occurrenceCount": 1,
+      "onWatchlist": false,
+      "watchlistPosition": null,
+      "diagnostic": "Public access to S3 is governed by Block Public Access + bucket policy together; a permissive policy is silently overridden by BPA. Ask: is BPA on?",
+      "lastSeen": "2026-05-31"
+    },
+    {
+      "id": "miss-0002",
+      "label": "Simplest-sufficient-fix rejection",
+      "domain": "D2",
+      "missType": "trap",
+      "confusionPair": null,
+      "occurrences": [
+        {
+          "date": "2026-06-01",
+          "location": "Day 2 Q5"
+        },
+        {
+          "date": "2026-06-02",
+          "location": "Phase 1 exam Q7"
+        }
+      ],
+      "occurrenceCount": 2,
+      "onWatchlist": true,
+      "watchlistPosition": 1,
+      "diagnostic": "When two options both work, prefer the one that adds less. Reject over-engineered answers unless a constraint forces them.",
+      "lastSeen": "2026-06-02"
+    },
+    {
+      "id": "miss-0003",
+      "label": "SQS standard vs FIFO",
+      "domain": "D2",
+      "missType": "confusion",
+      "confusionPair": {
+        "a": "SQS Standard — at-least-once, best-effort ordering, virtually unlimited throughput",
+        "b": "SQS FIFO — exactly-once processing, strict ordering per message group, ~3000 msg/s per group"
+      },
+      "occurrences": [
+        {
+          "date": "2026-06-02",
+          "location": "Phase 1 exam Q4"
+        },
+        {
+          "date": "2026-06-03",
+          "location": "Day 4 Q2"
+        }
+      ],
+      "occurrenceCount": 2,
+      "onWatchlist": true,
+      "watchlistPosition": 2,
+      "diagnostic": "Does the scenario require ordering or dedup? If yes → FIFO. If only high throughput with best-effort → Standard.",
+      "lastSeen": "2026-06-03"
+    }
+  ],
+  "watchlist": [
+    {
+      "position": 1,
+      "missId": "miss-0002",
+      "label": "Simplest-sufficient-fix rejection",
+      "occurrenceCount": 2,
+      "lastSeen": "2026-06-02",
+      "diagnostic": "When two options both work, prefer the one that adds less. Reject over-engineered answers unless a constraint forces them.",
+      "missType": "trap",
+      "confusionPair": null
+    },
+    {
+      "position": 2,
+      "missId": "miss-0003",
+      "label": "SQS standard vs FIFO",
+      "occurrenceCount": 2,
+      "lastSeen": "2026-06-03",
+      "diagnostic": "Does the scenario require ordering or dedup? If yes → FIFO. If only high throughput with best-effort → Standard.",
+      "missType": "confusion",
+      "confusionPair": {
+        "a": "SQS Standard — at-least-once, best-effort ordering, virtually unlimited throughput",
+        "b": "SQS FIFO — exactly-once processing, strict ordering per message group, ~3000 msg/s per group"
+      }
+    }
+  ],
+  "sources": {
+    "primary": [
+      {
+        "path": "sources/exam-guide.md",
+        "label": "Official SAA-C03 exam guide (synthetic example)",
+        "retrievedDate": "2026-05-25"
+      }
+    ],
+    "secondary": [
+      {
+        "path": "sources/course-notes.md",
+        "label": "Cantrill SAA-C03 course notes (synthetic example)",
+        "retrievedDate": "2026-05-26"
+      }
+    ],
+    "tertiary": [
+      {
+        "path": "sources/community-cheatsheet.md",
+        "label": "Community study cheatsheet (synthetic example)",
+        "retrievedDate": "2026-05-27"
+      }
+    ]
+  },
+  "diagnostic": {
+    "completed": true,
+    "date": "2026-05-30",
+    "perDomain": [
+      {
+        "domainId": "D1",
+        "questionsAsked": 4,
+        "correct": 2,
+        "percent": 50
+      },
+      {
+        "domainId": "D2",
+        "questionsAsked": 3,
+        "correct": 2,
+        "percent": 67
+      },
+      {
+        "domainId": "D3",
+        "questionsAsked": 3,
+        "correct": 2,
+        "percent": 67
+      },
+      {
+        "domainId": "D4",
+        "questionsAsked": 2,
+        "correct": 1,
+        "percent": 50
+      }
+    ]
+  },
+  "readiness": {
+    "lastUpdated": "2026-06-03",
+    "coldWaterEstimatePercent": 80,
+    "summary": "80% blended cold-water from 4 daily quizzes + Phase 1 exam; calibration shows mild overconfidence — the script debias pulls the headline down.",
+    "marginOverCutPercent": 4.67,
+    "noiseModelStdDevPercent": 4.17,
+    "passProbabilityRoughEstimate": 0.868,
+    "biasCorrectionPercent": -3.33,
+    "sampleSize": 5,
+    "debiasedEstimatePercent": 76.67,
+    "qualitativeBand": null
+  },
+  "lastUpdated": "2026-06-04T08:00:00Z"
+}
