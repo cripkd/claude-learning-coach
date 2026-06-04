@@ -2,6 +2,8 @@
 
 A Claude Code-powered study coach for scenario-based multiple-choice certification exams — the kind with a published, weighted domain blueprint (AWS, Azure, GCP, Anthropic, and similar vendors). Clone it, run one slash command, answer 10 questions — you have a personalized study coach that maintains memory across sessions, tracks progress, runs scenario-MCQ quizzes, and calibrates against your exam date.
 
+**See it before you set it up.** A fully-populated worked-example course lives at [`courses/example-saa-c03/`](courses/example-saa-c03/) — open `courses/example-saa-c03/dashboard/index.html` in any browser to see what a mid-prep dashboard looks like (5-day SAA-C03 slice, debiased readiness, watchlist, coverage gap, bank-vs-synthetic calibration split). It's synthetic — the student "Alex" doesn't exist — and it's also the canonical regression fixture for the build script (`npm run validate-example`).
+
 ---
 
 ## Scope

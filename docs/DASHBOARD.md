@@ -2,6 +2,8 @@
 
 > The dashboard (`courses/{slug}/dashboard/index.html`) is a self-contained visual snapshot of your study state. It is a **build artifact** rebuilt automatically by a `.claude` hook whenever `data/state.json` is written — after the state has passed schema validation. It works offline via `file://` — no server required.
 
+> **Worked example available.** [`courses/example-saa-c03/dashboard/index.html`](../courses/example-saa-c03/dashboard/index.html) is a synthetic but fully-populated dashboard you can open right now — it exercises every section described below (header, debiased readiness with bias correction, progress bar, phase breakdown with a completed phase exam, calibration table with bank+synthetic source badges, weighted domain coverage, coverage-vs-blueprint gap, watchlist with both trap + confusion entries). It's also the regression fixture for the build script (`npm run validate-example`).
+
 ---
 
 ## How to open it

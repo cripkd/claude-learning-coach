@@ -2,6 +2,8 @@
 
 > This guide explains how to go from a freshly cloned repo to a running study coach for your specific scenario-MCQ certification exam.
 
+> **Look at the worked example first.** [`courses/example-saa-c03/`](../courses/example-saa-c03/) is a synthetic but fully-populated course — open its `dashboard/index.html` to see what every dashboard section looks like with real data, then compare its `data/state.json` and per-course markdown files to the templates to understand what `/init-coach` is going to produce. The same fixture is wired into the build's `npm run validate-example` check, so any later schema changes that would break a real course break this one first.
+
 ---
 
 ## The fast path: `/init-coach`
