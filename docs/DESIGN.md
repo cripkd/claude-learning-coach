@@ -17,6 +17,14 @@
 
 Mixing them in one file forces the brain to switch modes mid-scan. Worse, the two writing styles pollute each other: trap entries written as rules sound generic; rule entries written as trap patterns feel overly narrow. Keeping them separate also makes it easy to see at a glance which file to open before a practice session vs before an endgame drill.
 
+### 1a. Two miss types: trap vs confusion
+
+Within `misses.md`, each miss carries an explicit `missType` — `trap` (a scenario distractor that fooled you) or `confusion` (you mixed up two recall items, e.g., S3 storage class A vs B). The two drill differently: a trap is drilled by replaying the scenario shape with the distractor present; a confusion is drilled head-to-head on the A-vs-B discrimination. Forcing both into one shape either dilutes the trap drill (a pure confusion has no scenario to replay) or under-utilises the confusion (no pair → no A-vs-B reps). Bifurcating at the record level keeps each drill mode pure.
+
+### 1b. Structured dedup over `misses[]`, not prose rescan
+
+Deduplication and recurrence detection operate on `state.json`'s `misses[]` array — structured fields (`missType`, normalised label, `confusionPair`) — not on prose in `misses.md`. A prose-driven rescan is fragile (a paraphrase defeats it) and forces the coach to re-read the entire file before every write. With structured records, "this miss recurred" is a field comparison; promotion to the watchlist is then deterministic and idempotent. The `.md` file is a rendered view; the canonical truth is the structured array.
+
 ---
 
 ## 2. Repeat-Miss Watchlist with auto-promotion
@@ -27,9 +35,9 @@ Mixing them in one file forces the brain to switch modes mid-scan. Worse, the tw
 
 **Why:** SRS is the right algorithm in theory but adds tooling friction and a cold-start problem (you need enough cards before the intervals pay off). The Watchlist is informal SRS: it surfaces the same item every time you open `misses.md`, which happens to be the right interval when you're in a compressed prep cycle. The key insight is that the Watchlist doesn't need a scheduler — it self-prioritizes by the fact that it's at the bottom of a file the coach reads every session.
 
-**Format:** Each Watchlist item carries the occurrence count and full provenance (e.g., `[REPEAT 3x — Day 10, Day 16, Day 21]`) so the student can trace the exact scenarios where the miss recurred.
+**Format:** Each Watchlist item carries occurrence count, full provenance (e.g., `[REPEAT 3× — Day 10, Day 16, Day 21]`), and a missType badge (TRAP or CONFUSION). For confusions the A vs B pair renders inline; for traps the diagnostic question is the one-sentence handle the student applies to recognise the pattern in a new scenario.
 
-**Promotion rule:** A miss is promoted on its 2nd occurrence. The original domain entry is updated (not duplicated). The Watchlist entry holds the diagnostic question — a one-sentence handle the student applies to recognize the trap in a new scenario.
+**Promotion rule:** A miss is promoted on its 2nd occurrence. Promotion is build-derived: `watchlist[]` is recomputed from `misses[]` by `scripts/build-dashboard.mjs` on every state write, so the coach never hand-maintains it and any inconsistent hand-edit is corrected on the next build. Drilling branches on `missType` — trap entries replay the scenario shape; confusion entries drill the pair head-to-head.
 
 ---
 

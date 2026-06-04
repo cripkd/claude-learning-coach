@@ -526,12 +526,26 @@ function renderRecentQuizzes(state) {
 
 // ─── 8. Watchlist ────────────────────────────────────────────────────────────
 
+// Build a [Trap] or [Confusion] badge for a miss/watchlist entry.
+// Defensive: legacy entries without missType render as TRAP (the pre-v2.2 default).
+function missTypeBadge(missType) {
+  const t = missType || 'trap';
+  if (t === 'confusion') return '<span class="badge badge-type badge-confusion">CONFUSION</span>';
+  return '<span class="badge badge-type badge-trap">TRAP</span>';
+}
+
+// Render the A vs B pair for a confusion entry. Returns '' when not applicable.
+function confusionPairHtml(pair) {
+  if (!pair || typeof pair !== 'object') return '';
+  return `<div class="confusion-pair"><span class="confusion-side">A: ${pair.a}</span> <span class="muted">vs</span> <span class="confusion-side">B: ${pair.b}</span></div>`;
+}
+
 function renderWatchlist(state) {
   const { watchlist } = state;
   const section = el('watchlist');
 
   if (!watchlist || watchlist.length === 0) {
-    section.innerHTML = '<h2 class="card-title">Repeat-Miss Watchlist</h2><p class="muted">No watchlist items yet. Traps that recur 2+ times are promoted here automatically.</p>';
+    section.innerHTML = '<h2 class="card-title">Repeat-Miss Watchlist</h2><p class="muted">No watchlist items yet. Misses that recur 2+ times — either scenario traps or recall confusions — are promoted here automatically.</p>';
     return;
   }
 
@@ -539,7 +553,8 @@ function renderWatchlist(state) {
 
   const listItems = items.map(item => `
     <li class="watchlist-item">
-      <div class="watchlist-label">${item.label}</div>
+      <div class="watchlist-label">${missTypeBadge(item.missType)} ${item.label}</div>
+      ${confusionPairHtml(item.confusionPair)}
       <div class="watchlist-meta">
         <span class="badge badge-repeat">REPEAT ${item.occurrenceCount}×</span>
         <span class="muted">Last seen ${item.lastSeen || '—'}</span>
@@ -573,10 +588,12 @@ function renderRecentMisses(state) {
   const items = recent.map(m => `
     <li class="miss-item ${m.onWatchlist ? 'on-watchlist' : ''}">
       <div class="miss-label">
+        ${missTypeBadge(m.missType)}
         ${m.onWatchlist ? '<span class="badge badge-repeat">WATCHLIST</span> ' : ''}
         ${m.label}
         <span class="miss-domain muted">${m.domain}</span>
       </div>
+      ${confusionPairHtml(m.confusionPair)}
       <div class="miss-meta muted">
         ${m.occurrenceCount}× · Last seen ${m.lastSeen || '—'}
       </div>

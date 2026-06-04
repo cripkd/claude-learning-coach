@@ -469,6 +469,31 @@ ol { list-style: decimal inside; }
   border: 1px solid rgba(232, 168, 56, 0.4);
 }
 
+.badge-type { margin-right: 4px; }
+
+.badge-trap {
+  background: rgba(232, 168, 56, 0.18);
+  color: var(--warning);
+  border: 1px solid rgba(232, 168, 56, 0.4);
+}
+
+.badge-confusion {
+  background: rgba(124, 106, 247, 0.18);
+  color: var(--accent);
+  border: 1px solid rgba(124, 106, 247, 0.4);
+}
+
+.confusion-pair {
+  font-size: 0.83rem;
+  font-family: var(--font-mono);
+  margin: 2px 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.confusion-side { color: var(--fg); }
+
 /* ─── Source Priority Strip ─────────────────────────────────── */
 
 .source-strip {

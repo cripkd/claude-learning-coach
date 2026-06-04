@@ -307,7 +307,7 @@ Write a fully populated `courses/{COURSE_SLUG}/data/state.json` using the schema
 Key field values:
 
 ```
-schemaVersion: "2.1"
+schemaVersion: "2.2"
 exam.fullName: EXAM_FULL_NAME
 exam.shortName: EXAM_SHORT_NAME
 exam.date: EXAM_DATE (null if "ongoing")
@@ -390,7 +390,7 @@ readiness:
 lastUpdated: today's date + "T00:00:00Z"
 ```
 
-`schemaVersion` is `"2.1"`.
+`schemaVersion` is `"2.2"`.
 
 **Exam pass mark:** if the student didn't mention it during Q6 and it's a well-known exam, use the known pass mark. If unknown, default to 72 and add a note: "I've defaulted the pass mark to 72% — update `exam.passMarkPercent` in `data/state.json` if you know the actual value."
 

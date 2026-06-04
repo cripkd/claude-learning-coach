@@ -10,8 +10,8 @@
 
     "schemaVersion": {
       "type": "string",
-      "description": "Schema version. Increment on breaking changes. Current: '2.1' (adds readiness debias fields; loosens quizScore.correct to number).",
-      "example": "2.1"
+      "description": "Schema version. Increment on breaking changes. Current: '2.2' (adds missType + confusionPair to misses[]; derives watchlist[] in the build).",
+      "example": "2.2"
     },
 
     "exam": {
@@ -204,15 +204,30 @@
 
     "misses": {
       "type": "array",
-      "description": "All miss entries. Each entry is stable — IDs never renumbered.",
+      "description": "All miss entries. Canonical record of every miss the coach has logged. IDs are stable — never renumbered. The build script derives watchlist[] from this array.",
       "items": {
         "type": "object",
-        "required": ["id", "label", "domain", "occurrences", "occurrenceCount", "onWatchlist", "watchlistPosition", "diagnostic", "lastSeen"],
+        "required": ["id", "label", "domain", "occurrences", "occurrenceCount", "onWatchlist", "watchlistPosition", "diagnostic", "lastSeen", "missType", "confusionPair"],
         "additionalProperties": false,
         "properties": {
           "id":               { "type": "string", "description": "Stable ID assigned at creation, e.g. 'miss-0001'" },
           "label":            { "type": "string", "description": "Trap-name handle matching the misses.md entry label" },
           "domain":           { "type": "string", "description": "Domain ID, e.g. 'D1', or 'meta' for exam-grammar entries" },
+          "missType": {
+            "type": "string",
+            "enum": ["trap", "confusion"],
+            "description": "Bifurcation introduced in v2.2. 'trap' = scenario-recognition error (the existing behavior; distractor structure or hidden constraint). 'confusion' = recall interference between two terms/concepts (term/concept A confused with B). Watchlist drilling branches on this field."
+          },
+          "confusionPair": {
+            "type": ["object", "null"],
+            "description": "Required (non-null) when missType='confusion'; must be null when missType='trap'. 'a' is what the student picked / confused FROM; 'b' is what was correct / confused FOR. The pair is the discrimination handle for watchlist drills.",
+            "additionalProperties": false,
+            "required": ["a", "b"],
+            "properties": {
+              "a": { "type": "string", "description": "Term/concept the student picked or got confused TO." },
+              "b": { "type": "string", "description": "Term/concept that was correct, or confused FROM." }
+            }
+          },
           "occurrences": {
             "type": "array",
             "items": {
@@ -228,7 +243,7 @@
           "occurrenceCount":  { "type": "integer", "minimum": 1 },
           "onWatchlist":      { "type": "boolean" },
           "watchlistPosition":{ "type": ["integer", "null"], "description": "Position in the Watchlist if onWatchlist is true" },
-          "diagnostic":       { "type": "string", "description": "One-sentence question or handle for drilling this trap" },
+          "diagnostic":       { "type": "string", "description": "One-sentence handle. For trap: the recognition question. For confusion: the discrimination cue (how to tell A from B)." },
           "lastSeen":         { "type": "string", "description": "YYYY-MM-DD of most recent occurrence" }
         }
       }
@@ -236,10 +251,10 @@
 
     "watchlist": {
       "type": "array",
-      "description": "Derived from misses where onWatchlist=true. Sorted by position ascending. Maintained as a separate array for dashboard convenience.",
+      "description": "**Build-derived from misses[]** where onWatchlist=true, sorted by watchlistPosition ascending. The build script overwrites this array on every build so it can never drift from misses[]; do not maintain it by hand. Schema lists this as required to keep the dashboard's data shape stable.",
       "items": {
         "type": "object",
-        "required": ["position", "missId", "label", "occurrenceCount", "lastSeen", "diagnostic"],
+        "required": ["position", "missId", "label", "occurrenceCount", "lastSeen", "diagnostic", "missType", "confusionPair"],
         "additionalProperties": false,
         "properties": {
           "position":        { "type": "integer", "minimum": 1 },
@@ -247,7 +262,17 @@
           "label":           { "type": "string" },
           "occurrenceCount": { "type": "integer", "minimum": 2 },
           "lastSeen":        { "type": "string" },
-          "diagnostic":      { "type": "string" }
+          "diagnostic":      { "type": "string" },
+          "missType":        { "type": "string", "enum": ["trap", "confusion"], "description": "Mirrored from the source miss so the dashboard can render the badge without cross-lookup." },
+          "confusionPair":   {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["a", "b"],
+            "properties": {
+              "a": { "type": "string" },
+              "b": { "type": "string" }
+            }
+          }
         }
       }
     },

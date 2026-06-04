@@ -13,10 +13,10 @@ What this template targets today, what's planned, and what it isn't trying to do
 - Blueprint variants: **weighted** (e.g., AWS / Azure / GCP / Anthropic cert exams with published per-domain weights), **unweighted** (domains listed without weights — equal allocation), and **no blueprint** (domains emerge from the diagnostic and early sessions).
 - Scoring variants: **fixed percent**, **scaled score** (e.g., 720 of 1000), and **pass/fail with no published cut** (qualitative readiness band).
 - Question formats: 4 or 5 options, single-correct (default) or **multiple-correct** with all-or-nothing or partial credit.
+- Recall-heavy mixes: the `confusion` miss type drills A-vs-B pairs head-to-head (separate from scenario traps); the `scenarioRecallRatio` knob biases each session toward scenarios or recall.
 - Readiness self-correction: the dashboard debiases the cold-water estimate from the student's own predicted-vs-actual history once there are ≥ 5 calibration points.
 
 **Not yet (roadmap)**
-- Recall-heavy question mixes (the underlying schema supports a scenarioRecallRatio knob; the daily-session protocol still front-loads scenarios).
 - Question-bank import.
 - Sparse-source handling (when authoritative sources are partial or missing).
 
