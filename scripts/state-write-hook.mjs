@@ -14,6 +14,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { promises as fs } from 'node:fs';
 import { dirname, resolve, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -56,6 +57,93 @@ function collectPaths(toolInput) {
   return [];
 }
 
+// ─── Day-transition audit ────────────────────────────────────────────────────
+// After the dashboard rebuild, diff the new state against a per-course snapshot.
+// For any day whose status transitioned to "in-progress" or "complete", verify
+// that the current session's transcript contains a day-start marker for that
+// day. If not, emit a stderr warning. We never block the write (PostToolUse
+// hooks fire after the write); this is an audit trail signal only.
+
+const DELIVERED_STATUSES = new Set(['in-progress', 'partial', 'complete']);
+
+function snapshotPath(slug) {
+  return `${REPO_ROOT}/courses/${slug}/.state-snapshot.json`;
+}
+
+async function loadJSON(path) {
+  try { return JSON.parse(await fs.readFile(path, 'utf8')); }
+  catch { return null; }
+}
+
+function dayStatusMap(state) {
+  const m = new Map();
+  for (const phase of state?.phases || []) {
+    for (const d of phase.days || []) {
+      if (Number.isInteger(d.day)) m.set(d.day, d.status || 'pending');
+    }
+  }
+  return m;
+}
+
+async function markerPresentInTranscript(transcriptPath, slug, day) {
+  if (!transcriptPath) return false;
+  let text;
+  try { text = await fs.readFile(transcriptPath, 'utf8'); } catch { return false; }
+  const re = new RegExp(`^\\s*<!--\\s*coach:day-start\\s+course=${slug}\\s+day=${day}\\s*-->`);
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue;
+    let obj;
+    try { obj = JSON.parse(line); } catch { continue; }
+    const msg = obj.message || obj;
+    if (!msg || !Array.isArray(msg.content)) continue;
+    for (const part of msg.content) {
+      if (part?.type !== 'text' || typeof part.text !== 'string') continue;
+      if (re.test(part.text)) return true;
+    }
+  }
+  return false;
+}
+
+async function auditTransitions(slug, statePath, transcriptPath) {
+  const current = await loadJSON(statePath);
+  if (!current) return;
+  const snapPath = snapshotPath(slug);
+  const prior = await loadJSON(snapPath);
+  const curMap = dayStatusMap(current);
+  const priorMap = prior ? dayStatusMap(prior) : new Map();
+
+  const warnings = [];
+  for (const [day, status] of curMap) {
+    if (!DELIVERED_STATUSES.has(status)) continue;
+    const wasDelivered = DELIVERED_STATUSES.has(priorMap.get(day) || 'pending');
+    if (wasDelivered) continue; // not a fresh transition
+    // Skip days with no required reading (phase exams, case practice, etc.) —
+    // a marker for those isn't expected. Cheap check: title contains "Exam"
+    // or topics is empty.
+    const dayObj = (current.phases || []).flatMap(p => p.days || []).find(d => d.day === day);
+    const topics = (dayObj?.topics || []).join(' ');
+    if (!topics || /Exam|Case practice|simulation|Rest day|Exam day|Watchlist|Cold-water/i.test(topics)) continue;
+
+    const present = await markerPresentInTranscript(transcriptPath, slug, day);
+    if (!present) {
+      warnings.push(`Day ${day} (${topics.split(';')[0].trim()})`);
+    }
+  }
+
+  if (warnings.length > 0) {
+    console.error(`state-write-hook: AUDIT WARNING — course '${slug}': day(s) transitioned to a delivered status without a day-start marker in the current session transcript:`);
+    for (const w of warnings) console.error(`  - ${w}`);
+    console.error('  (Expected `<!-- coach:day-start course=' + slug + ' day=N -->` at the start of the assistant message that delivered the day. The state.json write was not blocked.)');
+  }
+
+  // Save snapshot for next diff
+  try {
+    await fs.writeFile(snapPath, JSON.stringify(current, null, 2));
+  } catch (err) {
+    console.error(`state-write-hook: failed to save snapshot ${snapPath}: ${err.message}`);
+  }
+}
+
 // ─── Dispatch ────────────────────────────────────────────────────────────────
 
 function runBuilder(absStatePath) {
@@ -82,12 +170,19 @@ async function main() {
   const stateFiles = [...new Set(paths.filter(p => extractSlug(p)))];
   if (stateFiles.length === 0) return 0;
 
+  const transcriptPath = payload.transcript_path;
+
   for (const stateFile of stateFiles) {
+    const slug = extractSlug(stateFile);
     const code = await runBuilder(stateFile);
     if (code !== 0) {
       // Logged by builder via stderr; we still exit 0 so the hook never blocks.
-      const slug = extractSlug(stateFile);
       console.error(`state-write-hook: build-dashboard failed for course '${slug}' (exit ${code}).`);
+      continue; // don't audit a state we couldn't validate
+    }
+    try { await auditTransitions(slug, stateFile, transcriptPath); }
+    catch (err) {
+      console.error(`state-write-hook: audit failed for course '${slug}': ${err.message}`);
     }
   }
   return 0;
