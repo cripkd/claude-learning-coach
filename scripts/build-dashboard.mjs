@@ -170,12 +170,14 @@ function migrate(state) {
   return { state, migrated };
 }
 
-// ─── Drift detection (Fix C — logs warnings to stderr; does not fail build) ─
+// ─── Drift detection ────────────────────────────────────────────────────────
 // Scans for day.topics strings that don't appear in any domain.taskStatements
-// (excluding conventional phase-exam labels). When detected, prints a warning;
-// the dashboard.js side renders a visible card. Build still succeeds — the
-// student keeps visibility on every other metric while the coach fixes drift
-// in the next session. This is the same algorithm dashboard.js runs client-side.
+// (excluding conventional phase-exam labels). When detected, prints a warning
+// AND the build returns exit code 4 (DRIFT_EXIT_CODE) so the PostToolUse hook
+// can surface a blocking error to the model. The dashboard is still written
+// first so the visible card remains; the hook converts the exit code into a
+// hard signal that forces the coach to fix the topic string before continuing.
+// This is the same algorithm dashboard.js runs client-side.
 
 // A topic is checked for drift only when it *looks like* a task-statement reference
 // (matches /^D\d+-T\d+/ — the convention init-coach writes). Free-form labels like
@@ -184,6 +186,7 @@ function migrate(state) {
 // phase-exam days). Init's convention: domain.taskStatements strings always start
 // with "D{n}-T{n}.{n} " or "D{n}-T{n} "; everything else is a free-form label.
 const TASK_STATEMENT_REF_RE = /^D\d+-T\d+/;
+const DRIFT_EXIT_CODE = 4;
 
 function detectTopicDrift(state) {
   const domains = state.domains || [];
@@ -210,9 +213,9 @@ function warnOnDrift(slug, drift) {
   if (drift.length === 0) return;
   const preview = drift.slice(0, 5).map(d => `    ${d.phaseId} Day ${d.day}: ${JSON.stringify(d.topic)}`).join('\n');
   const more = drift.length > 5 ? `\n    … and ${drift.length - 5} more` : '';
-  console.warn(`⚠ ${slug}: ${drift.length} day.topics string(s) drift from domain.taskStatements:`);
-  console.warn(preview + more);
-  console.warn(`  → Fix in next session: add the missing taskStatement to its domain, or update the day's topic to match an existing one (byte-equal string).`);
+  console.error(`✗ ${slug}: BLOCKING — ${drift.length} day.topics string(s) drift from domain.taskStatements:`);
+  console.error(preview + more);
+  console.error(`  → Fix now: edit each listed day's topics[] to a byte-equal string from its domain.taskStatements[], OR add the new taskStatement to the appropriate domain. Re-write state.json after fixing. Split-day labels (e.g. "(single-account split)") belong in notes, not topics — topics is a join key, not a description.`);
 }
 
 // ─── Watchlist derivation (script-owned, overwrites state.watchlist) ─────────
@@ -474,7 +477,9 @@ async function main() {
   }
 
   if (args.validateOnly) {
-    warnOnDrift(paths.slug, detectTopicDrift(state));
+    const drift = detectTopicDrift(state);
+    warnOnDrift(paths.slug, drift);
+    if (drift.length > 0) return DRIFT_EXIT_CODE;
     console.log(`✓ ${paths.slug}: state.json valid${migrated ? ' (migrated to ' + CURRENT_VERSION + ' in-memory)' : ''}.`);
     return 0;
   }
@@ -508,7 +513,13 @@ async function main() {
     return 3;
   }
 
-  warnOnDrift(paths.slug, detectTopicDrift(state));
+  const drift = detectTopicDrift(state);
+  warnOnDrift(paths.slug, drift);
+  if (drift.length > 0) {
+    // Dashboard was still written above so the visible drift card remains;
+    // the nonzero exit signals the hook to block and force the coach to fix.
+    return DRIFT_EXIT_CODE;
+  }
 
   console.log(`✓ ${paths.slug}: built ${paths.dashboardOut}${migrated ? ' (migrated to ' + CURRENT_VERSION + ')' : ''}.`);
   return 0;
