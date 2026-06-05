@@ -24,7 +24,7 @@ What this template targets today, what's planned, and what it isn't trying to do
 
 **Not yet (roadmap)**
 - Sparse-source handling (when authoritative sources are partial or missing).
-- Active source parsing — automatic indexing of dropped source files so the coach can ground answers without being told which section to read.
+- ~~Active source parsing — automatic indexing of dropped source files so the coach can ground answers without being told which section to read.~~ **Shipped** as `/index-sources` (see Quick Start).
 
 **Out of scope**
 - Non-MCQ formats: free-response, performance / lab, oral, coding exercises.
@@ -55,13 +55,29 @@ claude          # opens Claude Code in this directory
 
 Requires Node.js ≥ 18 for the dashboard build tooling.
 
-Then in the Claude Code prompt:
+Then in the Claude Code prompt, in this order:
 
 ```
-/init-coach
+/init-coach          # answer the 10–12 interview questions (≈ 5 minutes)
+                     # drop your source materials into courses/{slug}/sources/
+                     # (and optionally a real question bank into courses/{slug}/bank/)
+/index-sources       # builds the topic index — maps each task statement to file:line ranges in your sources
+                     # so the coach can find relevant content in seconds instead of re-reading every file each day
+"run diagnostic"     # pre-study assessment, used to rebalance the phase plan
+"let's go" / "Day 1" # start studying
 ```
 
-Answer the 10–12 interview questions (≈ 5 minutes — depends on which optional sub-questions apply), drop your source materials into `sources/` (and, optionally, a real question bank into `bank/` — format: `templates/question-bank.md`), and say `"run diagnostic"` to take the pre-study assessment. After that, every session starts with `"let's go"` or `"Day N"`.
+Subsequent sessions start with `"let's go"` or `"Day N"` directly. Re-run `/index-sources` any time you add or update files in `sources/`.
+
+---
+
+## What `/index-sources` does
+
+After `/init-coach` and after you've added files to `sources/`, run `/index-sources`. It reads every file in your source folder once and produces `sources/_index.md` — a topic-keyed map from each exam task statement (e.g., `D1-T1.1 Design secure access to AWS resources`) to specific `file:line-range` citations in your primary and secondary sources, plus an explicit list of coverage gaps where sources are thin.
+
+The coach reads `_index.md` at the start of every daily session and reads only the cited ranges — typically ~10 KB instead of re-reading hundreds of KB of source material per day. This is what makes "ground the day's concepts in your declared sources" actually feasible. Without the index, the coach falls back to training-data knowledge, with the trade-off that explanations aren't anchored to your specific materials.
+
+Re-run any time `sources/` changes. The output is idempotent — previous `_index.md` is overwritten.
 
 ---
 

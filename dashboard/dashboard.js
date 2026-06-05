@@ -6,6 +6,55 @@
  * To update the dashboard: Claude regenerates dashboard/index.html (see docs/DASHBOARD.md).
  */
 
+// ─── Module constants ────────────────────────────────────────────────────────
+// Declared above the bootstrap IIFE because `const` declarations are in the
+// temporal dead zone until execution reaches them — referencing them from a
+// hoisted function called by the IIFE throws a ReferenceError otherwise.
+
+/** Min completed-day touches before the coverage-gap signal is worth surfacing. */
+const COVERAGE_GAP_MIN_SAMPLE = 3;
+/** Absolute share-percentage-point delta that counts as a coverage-gap flag. */
+const COVERAGE_GAP_FLAG_THRESHOLD = 5;
+
+/**
+ * True when no domain has any taskStatements declared. In that state we refuse
+ * to render coverage % — any apparent number would come from a coincidental
+ * day-topic match (e.g., 1 day matching out of 1 → false 100%).
+ */
+function isDomainStructureEmpty(domains) {
+  if (!domains || domains.length === 0) return true;
+  return domains.every(d => !d.taskStatements || d.taskStatements.length === 0);
+}
+
+/**
+ * Returns drift entries: day.topics strings that *look like* task-statement refs
+ * (match TASK_STATEMENT_REF_RE) but don't appear in any domain.taskStatements.
+ * Free-form labels (e.g., "Pool-derived cases", "Full simulation", "Phase 1 Exam")
+ * are exempt — they're intentionally not tied to task statements. Empty array
+ * when state is clean. Mirrored exactly by detectTopicDrift in build-dashboard.mjs.
+ */
+const TASK_STATEMENT_REF_RE = /^D\d+-T\d+/;
+
+function detectTopicDrift(state) {
+  const { domains, phases } = state;
+  if (isDomainStructureEmpty(domains)) return []; // refuse to flag drift when structure isn't declared at all
+  const known = new Set();
+  for (const d of domains || []) {
+    for (const t of d.taskStatements || []) known.add(t);
+  }
+  const drift = [];
+  for (const phase of phases || []) {
+    for (const day of phase.days || []) {
+      for (const topic of day.topics || []) {
+        if (!topic) continue;
+        if (!TASK_STATEMENT_REF_RE.test(topic)) continue; // free-form label, not a task-statement claim
+        if (!known.has(topic)) drift.push({ day: day.day, phaseId: phase.id, topic });
+      }
+    }
+  }
+  return drift;
+}
+
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 (function () {
@@ -37,6 +86,7 @@
 
   // Render all sections
   renderHeaderStrip(state);
+  renderDriftWarning(state);
   renderReadinessCard(state);
   renderProgressBar(state);
   renderPhaseBreakdown(state);
@@ -444,6 +494,17 @@ function renderDomainCoverage(state) {
     return;
   }
 
+  // Fix B: refuse to compute coverage % when no domain has taskStatements declared.
+  // Without them, day-to-domain matching can't work — any apparent number is noise
+  // (e.g., 1 coincidentally-matching day → false 100%).
+  if (isDomainStructureEmpty(domains)) {
+    section.innerHTML = `
+      <h2 class="card-title">Domain Coverage</h2>
+      <p class="muted">Task structure not yet populated. Coverage activates once <code>domain.taskStatements</code> are declared and matching day topics are set in <code>state.json</code>. For known exams, /init-coach populates these from the official exam guide; for unknown exams the diagnostic and first few sessions fill them in.</p>
+    `;
+    return;
+  }
+
   const coverage = computeDomainDays(domains, phases).map(({ domain, days }) => {
     if (days.length === 0) {
       return { domain, coveragePct: null, complete: 0, total: 0 };
@@ -488,11 +549,9 @@ function renderDomainCoverage(state) {
 }
 
 // ─── 6b. Coverage vs Blueprint ───────────────────────────────────────────────
-
-/** Min completed-day touches before the gap signal is worth surfacing. */
-const COVERAGE_GAP_MIN_SAMPLE = 3;
-/** Absolute share-percentage-point delta that counts as a flag. */
-const COVERAGE_GAP_FLAG_THRESHOLD = 5;
+// Constants COVERAGE_GAP_MIN_SAMPLE and COVERAGE_GAP_FLAG_THRESHOLD are declared
+// at the top of this file (above the bootstrap IIFE) to avoid temporal-dead-zone
+// errors when the IIFE calls renderCoverageGap before this section is reached.
 
 /**
  * Compute per-domain effort share vs blueprint share, returning rows in the
@@ -548,6 +607,14 @@ function renderCoverageGap(state) {
   const blueprintMode = (examProfile && examProfile.blueprint && examProfile.blueprint.mode) || 'weighted';
 
   if (blueprintMode === 'none') {
+    section.innerHTML = '';
+    section.style.display = 'none';
+    return;
+  }
+
+  // Fix B: same refusal as Domain Coverage — gap analysis would be meaningless
+  // without taskStatements to anchor day-to-domain matching.
+  if (isDomainStructureEmpty(domains)) {
     section.innerHTML = '';
     section.style.display = 'none';
     return;
@@ -803,6 +870,34 @@ function renderSourcePriority(state) {
 
   html += '</div>';
   section.innerHTML = html;
+}
+
+// ─── 0. Drift Warning (rendered above the readiness card when active) ───────
+// Fix C: surfaces day.topics strings that don't match any domain.taskStatements
+// (and aren't conventional phase-exam labels). When this card is visible, the
+// coach is expected to fix the drift in the next session — either add the
+// missing taskStatement or update the day's topic to match an existing one.
+
+function renderDriftWarning(state) {
+  const section = el('drift-warning');
+  if (!section) return; // template may not include the card yet
+  const drift = detectTopicDrift(state);
+  if (drift.length === 0) {
+    section.innerHTML = '';
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  const rows = drift.map(d => `<li><span class="muted">${d.phaseId}</span> Day ${d.day}: <code>${escapeHtml(d.topic)}</code></li>`).join('');
+  section.innerHTML = `
+    <h2 class="card-title bad">⚠ Topic / Task-Statement Drift Detected</h2>
+    <p class="muted">${drift.length} <code>day.topics</code> string${drift.length !== 1 ? 's' : ''} do not match any <code>domain.taskStatements</code>. Domain Coverage math may be misleading until this is reconciled. The coach should fix it in the next session — either add the missing taskStatement to the appropriate domain, or update the day's topic to match an existing one (byte-equal string match).</p>
+    <ul class="drift-list">${rows}</ul>
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // ─── 11. Last Updated Footer ─────────────────────────────────────────────────

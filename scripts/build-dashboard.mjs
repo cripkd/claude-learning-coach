@@ -170,6 +170,51 @@ function migrate(state) {
   return { state, migrated };
 }
 
+// ─── Drift detection (Fix C — logs warnings to stderr; does not fail build) ─
+// Scans for day.topics strings that don't appear in any domain.taskStatements
+// (excluding conventional phase-exam labels). When detected, prints a warning;
+// the dashboard.js side renders a visible card. Build still succeeds — the
+// student keeps visibility on every other metric while the coach fixes drift
+// in the next session. This is the same algorithm dashboard.js runs client-side.
+
+// A topic is checked for drift only when it *looks like* a task-statement reference
+// (matches /^D\d+-T\d+/ — the convention init-coach writes). Free-form labels like
+// "Pool-derived cases", "Full simulation", or "Phase 1 Exam" are exempt — they are
+// intentionally not tied to a specific task statement (Phase 3/4 integrated days,
+// phase-exam days). Init's convention: domain.taskStatements strings always start
+// with "D{n}-T{n}.{n} " or "D{n}-T{n} "; everything else is a free-form label.
+const TASK_STATEMENT_REF_RE = /^D\d+-T\d+/;
+
+function detectTopicDrift(state) {
+  const domains = state.domains || [];
+  const structureEmpty = domains.every(d => !d.taskStatements || d.taskStatements.length === 0);
+  if (structureEmpty) return []; // can't drift from an empty structure
+  const known = new Set();
+  for (const d of domains) {
+    for (const t of d.taskStatements || []) known.add(t);
+  }
+  const drift = [];
+  for (const phase of state.phases || []) {
+    for (const day of phase.days || []) {
+      for (const topic of day.topics || []) {
+        if (!topic) continue;
+        if (!TASK_STATEMENT_REF_RE.test(topic)) continue; // free-form label, not a task-statement claim
+        if (!known.has(topic)) drift.push({ phaseId: phase.id, day: day.day, topic });
+      }
+    }
+  }
+  return drift;
+}
+
+function warnOnDrift(slug, drift) {
+  if (drift.length === 0) return;
+  const preview = drift.slice(0, 5).map(d => `    ${d.phaseId} Day ${d.day}: ${JSON.stringify(d.topic)}`).join('\n');
+  const more = drift.length > 5 ? `\n    … and ${drift.length - 5} more` : '';
+  console.warn(`⚠ ${slug}: ${drift.length} day.topics string(s) drift from domain.taskStatements:`);
+  console.warn(preview + more);
+  console.warn(`  → Fix in next session: add the missing taskStatement to its domain, or update the day's topic to match an existing one (byte-equal string).`);
+}
+
 // ─── Watchlist derivation (script-owned, overwrites state.watchlist) ─────────
 
 // Builds watchlist[] from misses where onWatchlist=true. Sorts by watchlistPosition
@@ -429,6 +474,7 @@ async function main() {
   }
 
   if (args.validateOnly) {
+    warnOnDrift(paths.slug, detectTopicDrift(state));
     console.log(`✓ ${paths.slug}: state.json valid${migrated ? ' (migrated to ' + CURRENT_VERSION + ' in-memory)' : ''}.`);
     return 0;
   }
@@ -461,6 +507,8 @@ async function main() {
     console.error(`Failed to write dashboard: ${e.message}`);
     return 3;
   }
+
+  warnOnDrift(paths.slug, detectTopicDrift(state));
 
   console.log(`✓ ${paths.slug}: built ${paths.dashboardOut}${migrated ? ' (migrated to ' + CURRENT_VERSION + ')' : ''}.`);
   return 0;
