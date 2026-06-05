@@ -11,6 +11,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/day-delivery-gate.mjs"
+          }
+        ]
+      }
     ]
   }
 }
