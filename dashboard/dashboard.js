@@ -6,6 +6,16 @@
  * To update the dashboard: Claude regenerates dashboard/index.html (see docs/DASHBOARD.md).
  */
 
+// ─── Module constants ────────────────────────────────────────────────────────
+// Declared above the bootstrap IIFE because `const` declarations are in the
+// temporal dead zone until execution reaches them — referencing them from a
+// hoisted function called by the IIFE throws a ReferenceError otherwise.
+
+/** Min completed-day touches before the coverage-gap signal is worth surfacing. */
+const COVERAGE_GAP_MIN_SAMPLE = 3;
+/** Absolute share-percentage-point delta that counts as a coverage-gap flag. */
+const COVERAGE_GAP_FLAG_THRESHOLD = 5;
+
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 (function () {
@@ -488,11 +498,9 @@ function renderDomainCoverage(state) {
 }
 
 // ─── 6b. Coverage vs Blueprint ───────────────────────────────────────────────
-
-/** Min completed-day touches before the gap signal is worth surfacing. */
-const COVERAGE_GAP_MIN_SAMPLE = 3;
-/** Absolute share-percentage-point delta that counts as a flag. */
-const COVERAGE_GAP_FLAG_THRESHOLD = 5;
+// Constants COVERAGE_GAP_MIN_SAMPLE and COVERAGE_GAP_FLAG_THRESHOLD are declared
+// at the top of this file (above the bootstrap IIFE) to avoid temporal-dead-zone
+// errors when the IIFE calls renderCoverageGap before this section is reached.
 
 /**
  * Compute per-domain effort share vs blueprint share, returning rows in the
