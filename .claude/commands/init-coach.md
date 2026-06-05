@@ -128,11 +128,6 @@ The bank is fully **optional**. Absence of bank files = today's behavior (synthe
 
 Store: `REFERENCE_RESOURCES`. Default: `"the official documentation and source materials in sources/"`.
 
-### Q11 — License
-> License preference for this repo? Default is MIT. (Enter to accept MIT, or specify another.)
-
-Store: `LICENSE`. Default: `"MIT"`.
-
 ---
 
 ## Step 2: Derive the course slug and create the course folder
@@ -428,17 +423,7 @@ Confirm to the student: "Dashboard is ready — open `courses/{COURSE_SLUG}/dash
 
 ---
 
-## Step 8: Write the `LICENSE` file (if not present)
-
-If `LICENSE` does not exist in the project root, write an MIT license file with:
-- Year: current year
-- Copyright holder: the student's name if provided (STUDENT_NAME), otherwise leave as `[Your Name]`
-
-If the student chose a different license in Q11, note: "I've left the LICENSE file for you to fill in — MIT is the template default but you chose [LICENSE]."
-
----
-
-## Step 9: Closing summary
+## Step 8: Closing summary
 
 Print a concise setup summary:
 
