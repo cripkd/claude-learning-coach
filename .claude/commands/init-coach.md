@@ -108,14 +108,16 @@ Store: `TOTAL_DAYS` (integer).
 **If TOTAL_DAYS < 10:** warn: "A compressed schedule of fewer than 10 days may not have room for both the diagnostic and the endgame protocol. I'll create a minimum-viable 2-phase plan. You can re-run /init-coach if your timeline changes."
 
 ### Q9 — Source materials
-> Do you have study materials ready to add? If yes, tell me the filenames or paths — drop them into `sources/` and I'll reference them. If not, say "later" and I'll set up the structure for you to fill in.
+> Heads up: your study materials live **inside the course folder I'm about to create** — at `courses/{slug}/sources/` — not at the repo root. The folder doesn't exist yet, so the expected flow is: answer "later" here, I create the folder, then you drop your files in and add entries to `SOURCES.md`. Run the diagnostic after that — the diagnostic is what pulls in your sources to personalize the plan.
+>
+> If you've already pre-staged files somewhere (e.g., the repo root, the example course's folder), tell me the absolute paths and I'll copy them into `courses/{slug}/sources/` during setup. Otherwise just say "later".
 
-Store: `SOURCES[]` — list of `{path, label, priority}` if provided. If "later", leave `sources/` empty and note it in the setup summary.
+Store: `SOURCES[]` — list of `{path, label, priority}` if provided (treat as paths to copy from). If "later", leave `courses/{slug}/sources/` empty (created in Step 2) and note it in the setup summary.
 
 ### Q9a — Question bank (optional)
-> Do you have a question bank for this exam? A bank is **real** practice questions (verbatim from a vendor pack, course-pack questions, an official sample set, or a prior-exam pool) — *not* questions you'd write yourself. The coach draws from the bank during quizzes alongside synthetic generation, and weights bank results 2× synthetic when computing readiness (closer-to-real-exam signal).
+> Same convention as sources: the bank lives at `courses/{slug}/bank/`, which doesn't exist yet. A bank is **real** practice questions (verbatim from a vendor pack, course-pack questions, an official sample set, or a prior-exam pool) — *not* questions you'd write yourself. The coach draws from the bank during quizzes alongside synthetic generation, and weights bank results 2× synthetic when computing readiness (closer-to-real-exam signal). Format spec: `templates/question-bank.md`.
 >
-> If yes, drop the source files into `bank/` (format spec: `templates/question-bank.md`) and tell me their filenames. If no, say "no" and I'll set up an empty `bank/` directory — you can add a bank later by following the same format.
+> Expected flow: say "no" here, I create an empty `bank/`, then you drop files in later when you have them. If you've already pre-staged bank files somewhere, give me the absolute paths and I'll copy them in during setup.
 
 Store: `BANK_FILES[]` — list of `{path, label, questionCount, domains, retrievedDate}` if provided. If "no" or omitted, leave `bank/` empty.
 
