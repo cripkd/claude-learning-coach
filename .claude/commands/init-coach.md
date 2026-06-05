@@ -66,6 +66,22 @@ Store: `BLUEPRINT_MODE`, `DOMAINS[]`.
 - If the student listed domains without weights → `BLUEPRINT_MODE = "unweighted"`. `DOMAINS[]` assigns each domain `weight = round(100 / n)` (equal weight).
 - If the student said "no blueprint" or equivalent → `BLUEPRINT_MODE = "none"`. `DOMAINS[] = []`. The phase plan is generic; the diagnostic and the first few sessions will populate domains as topics surface, after which the course behaves like `unweighted`.
 
+### Q6b — Task statements (only ask when needed)
+
+Most exams break each domain into 2–5 *task statements* (e.g., SAA-C03's D1 has "Task 1.1 secure access", "Task 1.2 secure workloads", "Task 1.3 data security controls"). These task statements are what the day-by-day plan covers — and what the dashboard's Domain Coverage card matches days against.
+
+**Decide whether to ask:**
+
+- **Skip Q6b silently** when the exam short name from Q1 is one Claude knows from training data (any widely-published cert: AWS SAA-C03 / DOP-C02 / SAP-C02 / SCS-C02 / MLS-C01 / DVA-C02 / SOA-C02 / CLF-C02 / DEA-C01 / ANS-C01, Azure AZ-104 / AZ-204 / AZ-305 / AZ-400 / AZ-500 / AZ-700 / AZ-900, GCP ACE / PCA / PDE / PCSE / PCNE, CKA / CKAD / CKS, Anthropic Claude API certs, etc.). Use Claude's knowledge of the official exam guide to populate `taskStatements` later in Step 6 — no prompt needed.
+
+- **Ask Q6b** when the exam is non-standard, internal, niche, or Claude is not confident it knows the published task statements verbatim:
+  > Do you have the official task-statement breakdown for each domain (the "Task X.Y: …" lines from the exam guide)? Three ways to answer:
+  > - **Paste them** — copy the task statements as they appear in the exam guide. I'll format them as `D{n}-T{n}.{n}` IDs and write them to `data/state.json`.
+  > - **Skip** — leave task statements empty. The dashboard's Domain Coverage card will show "Task structure not yet populated" until the diagnostic and early sessions populate them. The course still runs; the coverage metric just goes dark until the structure is filled in.
+  > - **I don't know** — same as skip.
+
+Store: `TASK_STATEMENTS` as `{domainId: [string, ...]}` if the student pasted them, `null` otherwise. Coach will read this in Step 6.
+
 ### Q7 — Case mode
 > Does this exam test integrated case reasoning (scenario-based questions that require applying multiple concepts together), or is it primarily recall-based (definitions, formulas, direct knowledge retrieval)?
 
@@ -347,7 +363,23 @@ domains[]: one entry per domain from Q6 (empty array if BLUEPRINT_MODE = "none")
     - weighted   → declared weight (as given in Q6)
     - unweighted → round(100 / n) where n = number of domains (equal across domains)
     - none       → N/A; domains[] is empty until the diagnostic populates it
-  taskStatements: [] (empty for now; student fills in or coach populates during sessions)
+  taskStatements:
+    For known exams (Claude has the published task-statement list in its training data —
+    AWS certs like SAA-C03 / DOP-C02 / SAP-C02, Azure AZ-104 / AZ-204, GCP ACE / PCA,
+    CKA / CKAD, Anthropic certs, etc.): populate the FULL task-statement list from
+    the official exam guide, formatted as "{domain-id}-T{task-num} {task title}".
+    Example for SAA-C03 D1: ["D1-T1.1 Design secure access to AWS resources",
+    "D1-T1.2 Design secure workloads and applications",
+    "D1-T1.3 Determine appropriate data security controls"].
+
+    For unknown exams: if Q6 included an optional follow-up where the student
+    pasted task statements, use them verbatim. Otherwise leave taskStatements: []
+    — the dashboard's Domain Coverage card will render "Task structure not yet
+    populated" until the diagnostic and early sessions fill them in.
+
+    Either way, the strings populated here MUST match every string used in
+    phases[].days[].topics — coverage matching is byte-equal string equality.
+    See the matching contract in the phases[].days[].topics block below.
 
 phases[]: one entry per phase from Step 2
   id: "P1", "P2", "P3", "P4"
@@ -356,7 +388,29 @@ phases[]: one entry per phase from Step 2
   days[]: one entry per study day
     day: day number
     date: null (filled in as sessions happen)
-    topics: [] (empty; filled in during sessions)
+    topics:
+      MUST be byte-equal to a string in some domains[].taskStatements (for content
+      days), OR the literal "Phase N Exam" (for the phase-exam day). The dashboard's
+      Domain Coverage card matches days to domains by string equality; drift breaks
+      it silently and the build script will warn on every build until it's fixed.
+
+      When taskStatements were populated (known exam or student-provided):
+        Distribute task statements across days within each phase. With weighted
+        blueprint, allocate days per domain proportional to weight (as Step 3
+        already computed); within each domain's allocation, spread task
+        statements roughly evenly. e.g., SAA-C03 Phase 1 (D1 11 days + D2 8 days):
+          Days 1–4   topics: ["D1-T1.1 Design secure access to AWS resources"]
+          Days 5–8   topics: ["D1-T1.2 Design secure workloads and applications"]
+          Days 9–11  topics: ["D1-T1.3 Determine appropriate data security controls"]
+          Days 12–15 topics: ["D2-T2.1 Design scalable and loosely coupled architectures"]
+          Days 16–19 topics: ["D2-T2.2 Design highly available and/or fault-tolerant architectures"]
+          Day 20     topics: ["Phase 1 Exam"]
+
+      When taskStatements were left empty (unknown exam, no student input):
+        Leave topics: [] on every content day. The first sessions populate both
+        taskStatements and topics together; until then the Domain Coverage card
+        renders "Task structure not yet populated" and emits no misleading math.
+
     status: "pending"
     quizScore: null
     notes: ""
@@ -454,11 +508,12 @@ Files written:
 
 Next steps:
 1. Drop your study materials into courses/[COURSE_SLUG]/sources/ and fill in SOURCES.md
-2. Say "run diagnostic" to take the pre-study assessment before Day 1
-3. After the diagnostic, open the dashboard to see your domain starting map
-4. When ready, say "let's go" or "Day 1" to start
+2. Run `/index-sources` to build the topic index — maps each task statement to specific file:line ranges in your sources so the coach can find relevant content in seconds instead of re-reading every file each day
+3. Say "run diagnostic" to take the pre-study assessment before Day 1
+4. After the diagnostic, open the dashboard to see your domain starting map
+5. When ready, say "let's go" or "Day 1" to start
 
-[If sources were not provided:] I've left sources/ empty — add your materials before running the diagnostic.
+[If sources were not provided:] I've left sources/ empty — add your materials, then run `/index-sources` before running the diagnostic. The coach reads the index at the start of every daily session; without it the coach can't ground concept delivery in your declared sources.
 [If bank was not provided:] No question bank declared — quizzes will be coach-generated. You can drop a bank into bank/ later (format: templates/question-bank.md); the coach picks it up automatically.
 [If pass mark was defaulted:] Double-check exam.passMarkPercent in data/state.json (currently 72%).
 [If domain weights were estimated:] Double-check domain weights in data/state.json against the official exam blueprint.

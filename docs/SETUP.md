@@ -15,7 +15,12 @@ git clone <this repo> my-exam-prep
 cd my-exam-prep
 npm install       # one-time: installs ajv for dashboard schema validation
 claude            # opens Claude Code in this directory
-/init-coach       # starts the interactive setup interview
+/init-coach       # 1. interactive setup interview
+                  # 2. drop your source materials into courses/{slug}/sources/
+                  #    (and optionally a question bank into courses/{slug}/bank/)
+/index-sources    # 3. build the topic index so the coach can ground concepts in your declared sources
+"run diagnostic"  # 4. pre-study assessment that adjusts the phase plan
+"let's go"        # 5. start Day 1
 ```
 
 `/init-coach` asks you ~10–12 questions (a few are optional and skip on `"default"`), then:
@@ -103,9 +108,27 @@ The dashboard's readiness debias weights bank deltas twice as heavily as synthet
 
 ---
 
+## Building the source index — `/index-sources`
+
+Between dropping files into `sources/` and running the diagnostic, run **`/index-sources`**. It reads every file under `courses/{slug}/sources/` once and produces `sources/_index.md` — a topic-keyed map from each exam task statement to specific `file:line-range` citations.
+
+Why this exists: source materials (slides, exam guides, doc snapshots) are often split into files by page count or arbitrary chunks, not by concept. Without an index, the coach either re-reads hundreds of KB of source content every day or skips source-grounding entirely and falls back to training-data knowledge. The index solves this — the coach reads `_index.md` (~10 KB) at the start of every daily session and reads only the cited ranges for that day's task statement.
+
+The index also flags **coverage gaps** — task statements where your declared sources are thin. When that happens you have three options: accept that the coach will supplement those parts from training-data knowledge (clearly labeled `[out-of-source]`), snapshot an authoritative documentation page into `sources/` as a primary supplement, or live with thinner coverage on those topics.
+
+Re-run `/index-sources` any time `sources/` changes. The output is idempotent — previous `_index.md` is overwritten.
+
+```
+/index-sources       # builds courses/{slug}/sources/_index.md
+```
+
+If you skip this step, the coach will detect the missing index at the start of any source-reading flow (diagnostic, daily session, ad-hoc quiz) and prompt you to run it. You can also explicitly tell it "skip and use training knowledge" if you want to proceed without a source-grounded session.
+
+---
+
 ## Running the pre-study diagnostic
 
-After sources are in place, tell the coach: `"run diagnostic"`. It generates a 10–15 question diagnostic across your declared domains, saves results to `DIAGNOSTIC.md`, and adjusts the phase plan to front-load your weakest areas.
+After sources and the index are in place, tell the coach: `"run diagnostic"`. It generates a 10–15 question diagnostic across your declared domains, saves results to `DIAGNOSTIC.md`, and adjusts the phase plan to front-load your weakest areas.
 
 Run the diagnostic before Day 1. It takes 15–20 minutes and materially changes the study plan.
 
@@ -154,6 +177,7 @@ All course files live under `courses/{slug}/`. The repo root contains only templ
 | `courses/{slug}/misses.md` | Coach | Retrospective trap index + Repeat-Miss Watchlist |
 | `courses/{slug}/cases.md` | `/init-coach` + Coach | Case patterns for question generation |
 | `courses/{slug}/SOURCES.md` | You | Source material index with priority levels (plus optional Question Bank section) |
+| `courses/{slug}/sources/_index.md` | `/index-sources` | Topic index — maps each task statement to specific `file:line-range` citations in your source files. Rebuilt whenever you re-run `/index-sources`. The coach reads this at the start of every daily session. |
 | `courses/{slug}/bank/` (optional) | You | Real practice questions verbatim from declared sources. Format: `templates/question-bank.md`. Absence = synthetic-only quizzes (default). |
 | `courses/{slug}/DIAGNOSTIC.md` | Coach | Pre-study diagnostic results |
 | `courses/{slug}/CALIBRATION.md` | Coach | Predicted-vs-actual score tracking |
