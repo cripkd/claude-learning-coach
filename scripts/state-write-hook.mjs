@@ -172,11 +172,23 @@ async function main() {
 
   const transcriptPath = payload.transcript_path;
 
+  // Exit code 4 from build-dashboard.mjs = topic-drift detected. We surface it
+  // as a blocking PostToolUse error (exit 2 + stderr) so the model is forced
+  // to fix the topic string before continuing. Other nonzero codes (schema
+  // validation failure, render errors) are logged but non-blocking to preserve
+  // the existing "hook never blocks on infra failures" safety.
+  const DRIFT_EXIT_CODE = 4;
+  let driftFailures = 0;
+
   for (const stateFile of stateFiles) {
     const slug = extractSlug(stateFile);
     const code = await runBuilder(stateFile);
+    if (code === DRIFT_EXIT_CODE) {
+      driftFailures++;
+      console.error(`state-write-hook: BLOCKING — topic drift in course '${slug}'. Fix day.topics strings to byte-match domain.taskStatements (see build-dashboard output above), then re-write state.json.`);
+      continue;
+    }
     if (code !== 0) {
-      // Logged by builder via stderr; we still exit 0 so the hook never blocks.
       console.error(`state-write-hook: build-dashboard failed for course '${slug}' (exit ${code}).`);
       continue; // don't audit a state we couldn't validate
     }
@@ -185,10 +197,10 @@ async function main() {
       console.error(`state-write-hook: audit failed for course '${slug}': ${err.message}`);
     }
   }
-  return 0;
+  return driftFailures > 0 ? 2 : 0;
 }
 
 main().then(code => process.exit(code)).catch(err => {
   console.error('state-write-hook: unexpected error:', err);
-  process.exit(0); // hooks are non-blocking
+  process.exit(0); // unexpected infra errors are non-blocking; only topic drift blocks (exit 2 returned by main)
 });
