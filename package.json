@@ -11,7 +11,9 @@
     "build": "node scripts/build-dashboard.mjs",
     "validate": "node scripts/build-dashboard.mjs --validate",
     "validate-example": "node scripts/build-dashboard.mjs example-saa-c03 --validate",
-    "build-example": "node scripts/build-dashboard.mjs example-saa-c03"
+    "build-example": "node scripts/build-dashboard.mjs example-saa-c03",
+    "setup:retrieval": "npm install --no-save @huggingface/transformers && node scripts/build-embeddings.mjs --warmup",
+    "embeddings:build": "node scripts/build-embeddings.mjs"
   },
   "dependencies": {
     "ajv": "^8.17.1"

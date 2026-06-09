@@ -44,5 +44,12 @@ projects/
 /DIAGNOSTIC.md
 /CALIBRATION.md
 
-# ── Node (if ever adding a build step — v1 has none) ─────────
+# ── Node ─────────────────────────────────────────────────────
 node_modules/
+
+# ── Task 11: local vector retrieval ──────────────────────────
+# embeddings.ndjson and the incremental manifest are build artifacts.
+# .cache/ holds the local transformers model (downloaded by setup:retrieval).
+courses/*/data/embeddings.ndjson
+courses/*/data/.embeddings-manifest.json
+.cache/
