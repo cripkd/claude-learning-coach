@@ -19,16 +19,10 @@
 
 import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { resolve, dirname, join, relative, extname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, relative, extname } from 'node:path';
 import { createHash } from 'node:crypto';
+import { REPO_ROOT, DEFAULT_MODEL, CACHE_DIR, tryImportTransformers, initPipeline, embedText } from './_embed-utils.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
-const REPO_ROOT  = resolve(__dirname, '..');
-
-const DEFAULT_MODEL   = 'Xenova/all-MiniLM-L6-v2';
-const CACHE_DIR       = join(REPO_ROOT, '.cache', 'transformers');
 const CHUNK_MAX_CHARS = 1500;
 
 // ─── CLI ─────────────────────────────────────────────────────────────────────
@@ -59,13 +53,6 @@ function usage() {
     '  --warmup       Download model to local cache without embedding a course',
     '  --help         Show this message',
   ].join('\n');
-}
-
-// ─── Runtime guard ────────────────────────────────────────────────────────────
-
-async function tryImportTransformers() {
-  try { return await import('@huggingface/transformers'); }
-  catch { return null; }
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -275,33 +262,6 @@ async function loadExistingRecords(dataDir) {
     }
   } catch {}
   return byPath;
-}
-
-// ─── Embedding pipeline ───────────────────────────────────────────────────────
-
-async function initPipeline(transformers, modelName) {
-  const { pipeline, env } = transformers;
-  env.cacheDir = CACHE_DIR;
-  const embedder = await pipeline('feature-extraction', modelName, { device: 'cpu' });
-  env.allowRemoteModels = false; // offline after first load
-  return embedder;
-}
-
-function extractVector(output) {
-  // Handles @huggingface/transformers v2 and v3 output shapes after mean pooling
-  if (output?.data instanceof Float32Array) return Array.from(output.data);
-  if (Array.isArray(output?.data))          return output.data;
-  if (typeof output?.tolist === 'function') {
-    const list = output.tolist();
-    return Array.isArray(list[0]) ? list[0] : list;
-  }
-  if (output?.[0]?.data) return Array.from(output[0].data);
-  throw new Error('cannot extract vector from pipeline output — unexpected shape');
-}
-
-async function embedText(embedder, text) {
-  const output = await embedder(text, { pooling: 'mean', normalize: true });
-  return extractVector(output);
 }
 
 // ─── Warmup ───────────────────────────────────────────────────────────────────
