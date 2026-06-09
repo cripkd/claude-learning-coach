@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/state-write-hook.mjs"
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/state-write-hook.mjs"
           }
         ]
       },
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/embeddings-write-hook.mjs"
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/embeddings-write-hook.mjs"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/day-delivery-gate.mjs"
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/day-delivery-gate.mjs"
           }
         ]
       }
