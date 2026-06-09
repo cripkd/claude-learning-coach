@@ -82,6 +82,31 @@ Re-run any time `sources/` changes. The output is idempotent — previous `_inde
 
 ---
 
+## Optional: Local Semantic Retrieval
+
+By default the coach reads your `sources/` directly (`direct` mode) — no extra setup. As your materials grow, two optional layers help it read only what's relevant, both all-local (no cloud, no API keys):
+
+- **Index mode** (no install): run `/index-sources` to build `sources/_index.md` (a topic→file:line map) and `sources/_dayplan.md`. The coach then reads only the cited ranges for the day's task statements. Re-run `/index-sources` whenever sources change. This is the existing `/index-sources` flow — the indexing tier adds bounded retrieval without any new dependencies.
+
+- **Vector mode** (one small library + a ~23 MB model, CPU-only, offline after first download):
+  1. `npm run setup:retrieval` — installs the embedding runtime and downloads the model to `.cache/`
+  2. Create `courses/{course}/data/retrieval-config.json`:
+     ```json
+     { "mode": "vector", "model": "Xenova/all-MiniLM-L6-v2", "topK": 8, "byteBudget": 24000 }
+     ```
+  3. `npm run embeddings:build -- {course}` — embeds all source and bank files (re-runs automatically via hook when `sources/` changes)
+
+**Fallback / disable:** the coach degrades automatically `vector → index → direct`. To turn vector off, delete `retrieval-config.json` or set `"mode": "direct"`.
+
+**⚠️ `--no-save` caveat:** `npm run setup:retrieval` installs the embedding runtime with `--no-save`, so it is not recorded in `package.json`. A later `npm install` or `npm ci` will remove it — re-run `npm run setup:retrieval` if vector mode reports the runtime is missing.
+
+**Keeping things fresh:**
+- Source changes trigger automatic re-embedding via the PostToolUse hook — you don't have to re-run `embeddings:build` manually.
+- `_index.md` is **not** auto-refreshed by the hook (it's a manual `/index-sources`). If it becomes stale the coach warns and falls back.
+- Vector mode still reads each day's required source ranges before delivering content — `retrieve.mjs` retrieval is additive, not a substitute for the delivery gate.
+
+---
+
 ## What `/init-coach` asks you
 
 The setup is a guided interview — no manual file editing required:
@@ -157,8 +182,10 @@ The repo root contains only template machinery (never modified during study sess
 | `starter-files/` | Blank file skeletons copied by `/init-coach` |
 | `dashboard/dashboard.css` + `.js` | Shared dashboard source (copied per course) |
 | `scripts/build-dashboard.mjs` | Migrate-then-validate-then-render: rebuilds a course's `dashboard/index.html` from its `data/state.json` |
-| `.claude/settings.json` | Claude Code hook config — PostToolUse hook rebuilds the dashboard on every write to `courses/*/data/state.json` |
-| `package.json` | Node tooling for the build script (`ajv` for schema validation). Run `npm install` once after cloning. |
+| `scripts/build-embeddings.mjs` | Optional: embeds `sources/` and `bank/` into `data/embeddings.ndjson` for vector retrieval. Requires `npm run setup:retrieval`. |
+| `scripts/retrieve.mjs` | Optional: cosine-similarity query over `embeddings.ndjson`, with soft re-rank by domain/task-statement. |
+| `.claude/settings.json` | Claude Code hook config — PostToolUse hooks rebuild the dashboard on every `state.json` write and re-embed sources on every `sources/`/`bank/` write (when vector mode is active). |
+| `package.json` | Node tooling (`ajv` for schema validation). Run `npm install` once after cloning. Optional vector retrieval: `npm run setup:retrieval`. |
 | `docs/` | Design rationale, setup guide, endgame playbook, dashboard internals |
 
 **`data/state.json` is canonical.** All numeric/structural fields (scores, statuses, dates, occurrence counts) live there. The markdown files are rendered views and human annotations. The dashboard is a deterministic build artifact — never hand-written.
@@ -217,12 +244,11 @@ Each course dashboard is rebuilt automatically by a `.claude` hook whenever `cou
 
 ## Status
 
-**v2 (current — schema `2.3`).** MCQ parameterization landed: blueprint degradation (weighted / unweighted / none), scoring variants (fixed-percent / scaled / pass-fail-unknown), question formats (4-or-5 options, multi-correct with all-or-nothing or partial credit), the recall-vs-scenario mix, the trap-vs-confusion miss bifurcation, the closed calibration debias loop, question-bank import with a 2× calibration weight, and the coverage-vs-blueprint dashboard check. Passive source ingestion; MIT licensed.
+**v2 (current — schema `2.3`).** MCQ parameterization landed: blueprint degradation (weighted / unweighted / none), scoring variants (fixed-percent / scaled / pass-fail-unknown), question formats (4-or-5 options, multi-correct with all-or-nothing or partial credit), the recall-vs-scenario mix, the trap-vs-confusion miss bifurcation, the closed calibration debias loop, question-bank import with a 2× calibration weight, the coverage-vs-blueprint dashboard check, the source-grounding delivery gate, and the optional all-local semantic retrieval tier (vector mode). MIT licensed.
 
 ## Roadmap
 
 - **v2.x (remaining):** sparse-source handling — what the coach does when authoritative sources are partial or missing.
-- **v3:** active source parsing — automatic indexing of dropped source files (auto-generated domain maps, source coverage validation against the exam blueprint).
 - **Future (gated on adoption):** Claude Code plugin packaging — wrap the template + commands + hooks as an installable plugin. Not scoped yet; decision pending real-world usage.
 
 ## License
