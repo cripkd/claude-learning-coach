@@ -10,6 +10,15 @@
             "command": "node scripts/state-write-hook.mjs"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/embeddings-write-hook.mjs"
+          }
+        ]
       }
     ],
     "Stop": [
