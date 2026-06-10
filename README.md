@@ -1,4 +1,4 @@
-# Exam Coach
+# Learning Coach
 
 Most people study for certifications the same way: watch a course, take notes, do a practice test the week before, and hope for the best. There's no real feedback loop. No honest signal on whether the hours are actually moving the needle. No one to ask when something doesn't click at 11pm.
 
@@ -7,6 +7,11 @@ This is a personal study coach that builds a structured plan around your exam, t
 **It works even if your exam doesn't have a well-defined curriculum.** Bring whatever materials you have — official guides, course notes, community cheatsheets — and it builds the curriculum from them. Bring nothing at all, and it works from its own knowledge. No exam at the end? That's fine too — it's a tutor, not just an exam-prep tool.
 
 Built primarily for certification exams (AWS, Azure, GCP, and similar), but usable for any structured knowledge domain Claude has knowledge of.
+
+---
+
+**Contents**
+[See it in action](#see-it-in-action) · [Quick Start](#quick-start) · [What you bring / What it does](#what-you-bring--what-it-does) · [Day-to-day use](#day-to-day-use) · [Dashboard](#dashboard) · [How the coach works](#how-the-coach-works) · [Setup interview](#setup-interview-init-coach) · [Repo layout](#repo-layout) · [Docs](#docs) · [⚡ Advanced: Semantic Retrieval](#-advanced-semantic-retrieval-optional) · [How to read the dashboard](#how-to-read-the-dashboard) · [License](#license)
 
 ---
 
@@ -252,15 +257,18 @@ A glossary of every metric and concept shown in the dashboard.
 
 ### How data gets into the dashboard
 
-The dashboard isn't a form you fill in — everything populates automatically through normal coach sessions.
+The dashboard isn't a form you fill in — everything populates automatically through normal coach sessions. Here's what happens under the hood.
 
-- **After every study day**, the coach marks it complete and records what topics were covered.
-- **After every quiz**, the coach logs your score. Before the quiz starts, it asks what you think you'll score — that prediction is stored alongside the result so it can track whether you're over- or underconfident over time.
-- **When you answer a question wrong**, the coach logs it as a miss with a short diagnostic note. If you get the same thing wrong twice, it's automatically promoted to the Watchlist — no manual curation.
-- **The readiness estimate** is updated by the coach at the end of each session, as a plain-language assessment of where you stand right now.
-- **The dashboard rebuilds itself** in the background every time any of the above changes. Refresh your browser tab after a session to see the latest.
+**During a study day**
+The coach delivers content and runs a quiz. At the start of the quiz it asks for your predicted score. At the end it records the actual result. Both go into `CALIBRATION.md` (a human-readable log) and into `data/state.json` (the structured file that drives all dashboard math). Any questions you got wrong are appended to `misses.md` with a short coach-written diagnostic.
 
-Nothing requires manual data entry. The only thing you do is study.
+**At the end of every session**
+The coach updates three files: `memory.md` (a running session log used to pick up context next time), `progress.md` (the day-by-day tracker marking the day complete), and `data/state.json` (scores, statuses, miss counts, watchlist promotions, and the updated readiness estimate). If a miss has now appeared twice, it's also promoted to the Watchlist section in `misses.md` and flagged in state.
+
+**When `data/state.json` is written**
+A background hook fires automatically, validates the new state against a schema, and rebuilds `dashboard/index.html`. The readiness math (debiased estimate, pass probability, coverage gap) is recomputed from scratch on every build — the coach only writes raw inputs; the numbers you see are always freshly calculated. Refresh your browser tab to see the result.
+
+**Nothing requires manual data entry.** The only thing you do is study.
 
 ---
 
