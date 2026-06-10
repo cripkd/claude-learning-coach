@@ -81,7 +81,7 @@ Drop your study materials into `courses/{slug}/sources/` as markdown, plain text
 
 The coach uses this priority order when sources disagree. When all sources are silent on a topic, it marks the answer as "out-of-source" rather than fabricating.
 
-**Source ingestion is passive.** The coach doesn't parse or index your source files automatically — it reads them when you reference them during sessions and uses them as ground truth when answering knowledge questions. Active parsing (auto-indexing, source coverage validation) is the v3 roadmap item; today, the priority hierarchy you declare in `SOURCES.md` is the coach's reference map.
+**Source ingestion defaults to passive.** The coach reads sources when you reference them during sessions and uses them as ground truth when answering knowledge questions. The priority hierarchy you declare in `SOURCES.md` is the coach's reference map. For larger source sets, run `/index-sources` to build a topic index (`sources/_index.md`) that maps each task statement to specific file:line ranges — the coach then reads only cited ranges per day. For even larger sets, the optional vector retrieval tier (`npm run setup:retrieval`) adds semantic search on top; see the README "Optional: Local Semantic Retrieval" section.
 
 ---
 
@@ -197,7 +197,7 @@ For minor adjustments (swap two days, extend a phase by one day), edit `courses/
 
 ## What the coach will NOT do
 
-- **Parse your source documents for you** — passive ingestion only. The coach reads sources when you reference them during sessions; it does not auto-index or auto-summarize. Active source parsing is on the v3 roadmap.
+- **Parse your source documents for you automatically** — the coach reads sources when you reference them. For active indexing, run `/index-sources` (builds a topic map) or set up vector mode (semantic search). Both are optional and manual-trigger; nothing runs without your action.
 - **Auto-generate questions from source prose** — synthetic questions come from the coach's own domain knowledge grounded in `cases.md`. If you want real source-derived questions, drop them into `bank/` as verbatim entries (see "Adding a question bank" above) — that's how source-of-truth practice questions enter the quiz mix.
 - **Send you reminders or push notifications** — no background process.
 - **Sync across devices** — files are local; use git if you want sync.

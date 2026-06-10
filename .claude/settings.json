@@ -10,6 +10,15 @@
             "command": "node $CLAUDE_PROJECT_DIR/scripts/state-write-hook.mjs"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/embeddings-write-hook.mjs"
+          }
+        ]
       }
     ],
     "Stop": [

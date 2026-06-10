@@ -819,3 +819,52 @@ function renderLastUpdated(state) {
     <span class="muted">Refresh this tab after each coaching session to see the latest snapshot.</span>
   `;
 }
+
+
+// ─── Font Size Controller ─────────────────────────────────────────────────────
+
+(function initFontSizeCtrl() {
+  const SIZES      = [13, 14, 15, 16, 17, 18, 20];
+  const DEFAULT    = 16;
+  const DEFAULT_IDX = SIZES.indexOf(DEFAULT);
+  const KEY        = 'dashFontSize';
+
+  let idx = DEFAULT_IDX;
+  const stored = localStorage.getItem(KEY);
+  if (stored !== null) {
+    const i = SIZES.indexOf(parseInt(stored, 10));
+    if (i !== -1) idx = i;
+  }
+
+  const ctrl = document.createElement('div');
+  ctrl.className = 'font-ctrl';
+  ctrl.setAttribute('aria-label', 'Font size controls');
+  ctrl.innerHTML = `
+    <button class="fcb" data-action="dec" title="Smaller text">A−</button>
+    <button class="fcb" data-action="reset" title="Reset text size">A</button>
+    <button class="fcb" data-action="inc" title="Larger text">A+</button>
+  `;
+  document.body.appendChild(ctrl);
+
+  const btnDec   = ctrl.querySelector('[data-action="dec"]');
+  const btnReset = ctrl.querySelector('[data-action="reset"]');
+  const btnInc   = ctrl.querySelector('[data-action="inc"]');
+
+  function apply() {
+    document.documentElement.style.fontSize = SIZES[idx] + 'px';
+    localStorage.setItem(KEY, SIZES[idx]);
+    btnDec.disabled   = idx === 0;
+    btnInc.disabled   = idx === SIZES.length - 1;
+    btnReset.classList.toggle('active', idx !== DEFAULT_IDX);
+  }
+
+  ctrl.addEventListener('click', e => {
+    const action = e.target.dataset.action;
+    if      (action === 'dec'   && idx > 0)                idx--;
+    else if (action === 'inc'   && idx < SIZES.length - 1) idx++;
+    else if (action === 'reset')                            idx = DEFAULT_IDX;
+    apply();
+  });
+
+  apply();
+}());
