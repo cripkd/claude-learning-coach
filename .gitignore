@@ -43,6 +43,7 @@ projects/
 /SOURCES.md
 /DIAGNOSTIC.md
 /CALIBRATION.md
+tasks/
 
 # ── Node (if ever adding a build step — v1 has none) ─────────
 node_modules/
