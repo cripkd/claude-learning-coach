@@ -1,232 +1,168 @@
-# Exam Coach Template
+# Exam Coach
 
-A Claude Code-powered study coach for scenario-based multiple-choice certification exams — the kind with a published, weighted domain blueprint (AWS, Azure, GCP, Anthropic, and similar vendors). Clone it, run one slash command, answer ~10 questions — you have a personalized study coach that maintains memory across sessions, tracks progress, runs scenario-MCQ quizzes, and calibrates against your exam date.
-
-**See it before you set it up.** A fully-populated worked-example course lives at [`courses/example-saa-c03/`](courses/example-saa-c03/) — open `courses/example-saa-c03/dashboard/index.html` in any browser to see what a mid-prep dashboard looks like (5-day SAA-C03 slice, debiased readiness, watchlist, coverage gap, bank-vs-synthetic calibration split). It's synthetic — the student "Alex" doesn't exist — and it's also the canonical regression fixture for the build script (`npm run validate-example`).
+A Claude Code-powered study coach for scenario-based multiple-choice certification exams — AWS, Azure, GCP, Anthropic, and similar vendors with a published, weighted domain blueprint. Clone it, run one command, answer ~10 questions, and you have a personalized coach that remembers sessions, tracks progress, runs quizzes, and calibrates against your exam date.
 
 ---
 
-## Scope
+## See it in action
 
-What this template targets today, what's planned, and what it isn't trying to do.
-
-**Supported now**
-- Scenario-based multiple-choice certification exams with tiered textual sources (primary / secondary / tertiary).
-- Blueprint variants: **weighted** (e.g., AWS / Azure / GCP / Anthropic cert exams with published per-domain weights), **unweighted** (domains listed without weights — equal allocation), and **no blueprint** (domains emerge from the diagnostic and early sessions).
-- Scoring variants: **fixed percent**, **scaled score** (e.g., 720 of 1000), and **pass/fail with no published cut** (qualitative readiness band).
-- Question formats: 4 or 5 options, single-correct (default) or **multiple-correct** with all-or-nothing or partial credit.
-- Recall-heavy mixes: the `confusion` miss type drills A-vs-B pairs head-to-head (separate from scenario traps); the `scenarioRecallRatio` knob biases each session toward scenarios or recall.
-- Readiness self-correction: the dashboard debiases the cold-water estimate from the student's own predicted-vs-actual history once there are ≥ 5 calibration points.
-- **Question-bank import:** drop real practice questions into `courses/{slug}/bank/` and the coach draws from them in quizzes alongside synthetic generation. Bank actuals are weighted 2× synthetic in the readiness debias (closer-to-real-exam signal). Format spec in `templates/question-bank.md`; the bank is fully optional.
-- **Coverage-vs-blueprint check:** the dashboard flags any domain whose actual study effort is ≥ 5pp below its expected share (`weight / sumWeights` in weighted mode, `1/n` in unweighted), so under-drilled high-weight domains surface before exam day.
-
-> See [`docs/EXAM-PROFILES.md`](docs/EXAM-PROFILES.md) for the full `examProfile` descriptor — every axis above lives there as an enum or constant, with defaults that reproduce the CCA-shaped exam out of the box.
-
-**Not yet (roadmap)**
-- Sparse-source handling (when authoritative sources are partial or missing).
-- ~~Active source parsing — automatic indexing of dropped source files so the coach can ground answers without being told which section to read.~~ **Shipped** as `/index-sources` (see Quick Start).
-
-**Out of scope**
-- Non-MCQ formats: free-response, performance / lab, oral, coding exercises.
-- Adaptive / computerized-adaptive (CAT) exams.
-- Language learning and other skills-based / "any deadline-driven knowledge acquisition" use cases.
+A fully-populated example lives at [`courses/example-saa-c03/`](courses/example-saa-c03/). Open `courses/example-saa-c03/dashboard/index.html` in any browser to see a mid-prep dashboard: debiased readiness estimate, calibration chart, watchlist, domain coverage vs blueprint, and more. The student "Alex" is synthetic — it's a fixture, not a real prep run.
 
 ---
 
-## What makes it different from a study tracker
-
-- **Two separate files for rules vs traps** — `cheatsheet.md` holds forward-looking decision rules ("here's the model, apply it"); `misses.md` holds retrospective trap patterns ("here's where I got fooled"). Different mental modes; mixing them dilutes both.
-- **Repeat-Miss Watchlist with auto-promotion** — when you miss the same conceptual trap twice, it's promoted to a dedicated Watchlist section, the highest-priority drill surface in the pre-exam window.
-- **Honest cold-water calibration** — numeric estimates ("88–92% blended"), not vibes. `CALIBRATION.md` tracks predicted vs actual per quiz and phase exam so you can see whether you're over- or underconfident.
-- **Quiz answer-leak prevention** — Claude Code's terminal autocomplete can leak quiz answers if the prompt ends on a question token. The coach follows explicit rules to prevent this (end on neutral prose, no sample answer strings, randomize A/B/C/D distribution).
-- **Source-priority-aware** — primary > secondary > tertiary. When sources disagree the coach follows the declared hierarchy; when all sources are silent it marks the answer "out-of-source" rather than fabricating.
-- **Source-grounding gate** — a `Stop` hook (`scripts/day-delivery-gate.mjs`) refuses to end the assistant turn if the coach claims to deliver Day N but hasn't actually read the cited source ranges in the current session. Required ranges per day live in `sources/_dayplan.md`; coverage is computed from the session transcript. Turns "read the sources before teaching" from a CLAUDE.md rule into a runtime invariant. See [`docs/DESIGN.md`](docs/DESIGN.md) § 10.
-- **Self-contained dashboard** (`dashboard/index.html`) — visual snapshot of progress, calibration, readiness, and the watchlist. Includes a coverage-vs-blueprint check that surfaces under-drilled high-weight domains, so the actual effort distribution is held against the declared exam weight. Regenerated by Claude on every structural state change. Works offline via `file://`, no server required.
-
----
-
-## Quick start
+## Quick Start
 
 ```bash
 git clone https://github.com/cripkd/claude-learning-coach my-exam-prep
 cd my-exam-prep
-npm install     # one-time: installs ajv for dashboard schema validation
-claude          # opens Claude Code in this directory
+npm install     # one-time: installs ajv for schema validation
+claude          # opens Claude Code
 ```
 
-Requires Node.js ≥ 18 for the dashboard build tooling.
+Requires Node.js ≥ 18.
 
-Then in the Claude Code prompt, in this order:
+Then in the Claude Code prompt:
 
 ```
-/init-coach          # answer the 10–12 interview questions (≈ 5 minutes)
+/init-coach          # guided setup — ~10 questions, ~5 minutes
                      # drop your source materials into courses/{slug}/sources/
-                     # (and optionally a real question bank into courses/{slug}/bank/)
-/index-sources       # builds the topic index — maps each task statement to file:line ranges in your sources
-                     # so the coach can find relevant content in seconds instead of re-reading every file each day
-"run diagnostic"     # pre-study assessment, used to rebalance the phase plan
-"let's go" / "Day 1" # start studying
+                     # (optional: drop real practice questions into courses/{slug}/bank/)
+/index-sources       # builds a topic → file:line map so the coach reads only what's relevant
+"run diagnostic"     # pre-study assessment; rebalances the phase plan
+"let's go"           # start Day 1
 ```
 
-Subsequent sessions start with `"let's go"` or `"Day N"` directly. Re-run `/index-sources` any time you add or update files in `sources/`.
+Subsequent sessions: just open Claude Code and say `"let's go"` or `"Day N"`. Re-run `/index-sources` any time you add files to `sources/`.
 
 ---
 
-## What `/index-sources` does
+## What you bring / What it does
 
-After `/init-coach` and after you've added files to `sources/`, run `/index-sources`. It reads every file in your source folder once and produces `sources/_index.md` — a topic-keyed map from each exam task statement (e.g., `D1-T1.1 Design secure access to AWS resources`) to specific `file:line-range` citations in your primary and secondary sources, plus an explicit list of coverage gaps where sources are thin.
+**You bring:**
+- Source materials (official guide, course notes, docs) as markdown or plain text in `sources/`
+- Priority tiers: primary / secondary / tertiary, declared in `SOURCES.md`
+- Your background, learning style, and exam date (captured during `/init-coach`)
+- Optionally: real practice questions in `bank/`
 
-The coach reads `_index.md` at the start of every daily session and reads only the cited ranges — typically ~10 KB instead of re-reading hundreds of KB of source material per day. This is what makes "ground the day's concepts in your declared sources" actually feasible. Without the index, the coach falls back to training-data knowledge, with the trade-off that explanations aren't anchored to your specific materials.
-
-Re-run any time `sources/` changes. The output is idempotent — previous `_index.md` is overwritten.
-
----
-
-## Optional: Local Semantic Retrieval
-
-By default the coach reads your `sources/` directly (`direct` mode) — no extra setup. As your materials grow, two optional layers help it read only what's relevant, both all-local (no cloud, no API keys):
-
-- **Index mode** (no install): run `/index-sources` to build `sources/_index.md` (a topic→file:line map) and `sources/_dayplan.md`. The coach then reads only the cited ranges for the day's task statements. Re-run `/index-sources` whenever sources change. This is the existing `/index-sources` flow — the indexing tier adds bounded retrieval without any new dependencies.
-
-- **Vector mode** (one small library + a ~23 MB model, CPU-only, offline after first download):
-  1. `npm run setup:retrieval` — installs the embedding runtime and downloads the model to `.cache/`
-  2. Create `courses/{course}/data/retrieval-config.json`:
-     ```json
-     { "mode": "vector", "model": "Xenova/all-MiniLM-L6-v2", "topK": 8, "byteBudget": 24000 }
-     ```
-  3. `npm run embeddings:build -- {course}` — embeds all source and bank files (re-runs automatically via hook when `sources/` changes)
-
-**Fallback / disable:** the coach degrades automatically `vector → index → direct`. To turn vector off, delete `retrieval-config.json` or set `"mode": "direct"`.
-
-**⚠️ `--no-save` caveat:** `npm run setup:retrieval` installs the embedding runtime with `--no-save`, so it is not recorded in `package.json`. A later `npm install` or `npm ci` will remove it — re-run `npm run setup:retrieval` if vector mode reports the runtime is missing.
-
-**Keeping things fresh:**
-- Source changes trigger automatic re-embedding via the PostToolUse hook — you don't have to re-run `embeddings:build` manually.
-- `_index.md` is **not** auto-refreshed by the hook (it's a manual `/index-sources`). If it becomes stale the coach warns and falls back.
-- Vector mode still reads each day's required source ranges before delivering content — `retrieve.mjs` retrieval is additive, not a substitute for the delivery gate.
-
----
-
-## What `/init-coach` asks you
-
-The setup is a guided interview — no manual file editing required:
-
-1. **Exam/cert name** — full name + short abbreviation (e.g., `"AWS Solutions Architect Associate (SAA-C03)"`)
-2. **Exam date** — `YYYY-MM-DD`, or `"ongoing"` if not date-bound
-3. **Your name** — optional; used in the coach's tone
-4. **Your background** — 1–3 sentences: role, prior experience, known gaps
-5. **How you learn best** — scenarios/hands-on, lecture-style, drilling, or mixed
-6. **Exam domains** — list with weights if known (e.g., `"D1: 30%, D2: 22%, ..."`), without weights (equal allocation), or `"no blueprint"` (domains emerge from the diagnostic)
-7. **Case reasoning vs recall** — does the exam test integrated scenarios, or is it primarily recall? (affects phase plan shape)
-7a. **Scoring & question format** (optional — defaults match a typical cert exam) — fixed-percent / scaled / pass-fail-unknown cutoff; 4 or 5 options; single- or multiple-correct (with all-or-nothing or partial credit). Skip with `"default"`. Full descriptor in [`docs/EXAM-PROFILES.md`](docs/EXAM-PROFILES.md).
-8. **Total study days available** — integer
-9. **Source materials** — paths/files to drop in, or `"I'll add them later"`
-9a. **Question bank** (optional) — real practice questions to drop into `bank/`, or `"no"`. See [`docs/SETUP.md`](docs/SETUP.md#adding-a-question-bank-optional).
-10. **Reference resources** — courses / docs / community links to surface in daily sessions (optional)
-11. **License preference** — default MIT
-
-After the interview, the coach generates your `CLAUDE.md`, copies and fills in all starter files, writes the initial `data/state.json`, and renders the first `dashboard/index.html`.
-
----
-
-## What you provide
-
-- Source materials (official guide, courses, docs) as markdown or text in `sources/`
-- Priority declarations in `SOURCES.md` (primary / secondary / tertiary)
-- Your background and learning preferences (during `/init-coach`)
-- Exam date or learning deadline
-
-## What the coach provides
-
-- Per-day session structure: concepts → exam traps → decision rules → practice questions → hands-on exercise
+**It does:**
+- Per-day session structure: concepts → exam traps → decision rules → practice questions
 - Domain-weighted phase plan, front-loaded to your weakest areas after the diagnostic
-- Case-grounded quizzes with full post-answer explanation of all four options
-- Trap-pattern drilling via `misses.md` and the Repeat-Miss Watchlist
-- Pre-exam confidence calibration (predicted vs actual, tracked over time)
+- Quizzes with full explanation of all options — bank questions weighted 2× synthetic in readiness math
+- Tracks misses and auto-promotes recurring traps to a Repeat-Miss Watchlist
+- Calibrates your confidence: predicted vs actual per quiz, debiased once you have ≥ 5 data points
+- Rebuilds a visual progress dashboard automatically on every state change
 - Final-72-hour playbook (see [`docs/ENDGAME.md`](docs/ENDGAME.md))
-- Visual progress dashboard, rebuilt automatically on every state change (schema-validated build artifact)
-
----
-
-## Repo layout
-
-Each course lives in its own folder under `courses/`. You can run multiple courses at the same time with clean separation.
-
-```
-courses/
-└── saa-c03/               ← one folder per course (slug from exam short name)
-    ├── CLAUDE.md           ← course-specific coach (generated by /init-coach)
-    ├── memory.md           ← session log
-    ├── progress.md         ← phase/day tracker
-    ├── cheatsheet.md       ← forward-looking rules
-    ├── misses.md           ← trap index + Repeat-Miss Watchlist
-    ├── cases.md            ← case patterns
-    ├── SOURCES.md          ← source material index
-    ├── DIAGNOSTIC.md       ← pre-study diagnostic
-    ├── CALIBRATION.md      ← predicted vs actual log
-    ├── sources/            ← your study materials
-    ├── bank/               ← optional question bank (real practice questions)
-    ├── quizzes/            ← per-day quiz records
-    ├── data/state.json     ← canonical structured state (source of truth)
-    └── dashboard/
-        └── index.html      ← build artifact (rebuilt by the hook on every state write)
-```
-
-The repo root contains only template machinery (never modified during study sessions):
-
-| Root file | Purpose |
-|---|---|
-| `CLAUDE.md` | Multi-course dispatcher — tells Claude to ask which course and load it |
-| `CLAUDE.md.template` | Template for per-course CLAUDE.md (filled by `/init-coach`) |
-| `templates/` | Format guides and the JSON schema for `data/state.json` |
-| `starter-files/` | Blank file skeletons copied by `/init-coach` |
-| `dashboard/dashboard.css` + `.js` | Shared dashboard source (copied per course) |
-| `scripts/build-dashboard.mjs` | Migrate-then-validate-then-render: rebuilds a course's `dashboard/index.html` from its `data/state.json` |
-| `scripts/build-embeddings.mjs` | Optional: embeds `sources/` and `bank/` into `data/embeddings.ndjson` for vector retrieval. Requires `npm run setup:retrieval`. |
-| `scripts/retrieve.mjs` | Optional: cosine-similarity query over `embeddings.ndjson`, with soft re-rank by domain/task-statement. |
-| `.claude/settings.json` | Claude Code hook config — PostToolUse hooks rebuild the dashboard on every `state.json` write and re-embed sources on every `sources/`/`bank/` write (when vector mode is active). |
-| `package.json` | Node tooling (`ajv` for schema validation). Run `npm install` once after cloning. Optional vector retrieval: `npm run setup:retrieval`. |
-| `docs/` | Design rationale, setup guide, endgame playbook, dashboard internals |
-
-**`data/state.json` is canonical.** All numeric/structural fields (scores, statuses, dates, occurrence counts) live there. The markdown files are rendered views and human annotations. The dashboard is a deterministic build artifact — never hand-written.
 
 ---
 
 ## Day-to-day use
 
-Every session:
-
-```
-claude              # open Claude Code in the project directory
-"let's go"          # or "continue" or "Day 7" or "SAA-C03"
+```bash
+claude          # open Claude Code in the project directory
 ```
 
-The root `CLAUDE.md` dispatcher detects your active course and loads it. The course coach reads `memory.md` and `progress.md`, tells you where you are, and picks up where you left off. At session end it updates memory, progress, and quiz records; the dashboard is rebuilt automatically by a hook whenever `data/state.json` changes.
+Then: `"let's go"` or `"continue"` or `"Day 7"`. The dispatcher loads your active course, reads the session log and progress file, and picks up where you left off. Multiple days per session is fine — if you're in flow, keep going.
 
-Multiple days per session is encouraged — if you're in flow, keep going.
+The dashboard rebuilds automatically whenever the state changes. Refresh the tab after each session.
 
 ---
 
 ## Dashboard
 
-Open `courses/{your-course}/dashboard/index.html` in any browser. On macOS:
+Open in any browser:
 
 ```bash
-open courses/saa-c03/dashboard/index.html
+open courses/{your-course}/dashboard/index.html   # macOS
 ```
 
-It shows:
-
+Shows:
 - Header: exam name, days remaining, current day and phase
-- Headline readiness: cold-water estimate, margin over pass mark, rough pass probability
+- Readiness: cold-water estimate, margin over pass mark, rough pass probability
 - Phase breakdown with day-status pills and phase exam scores
 - Calibration chart: predicted vs actual over time
 - Domain coverage weighted by exam blueprint
-- Coverage vs blueprint: per-domain effort share vs declared weight (or equal split), flagging under-drilled high-weight domains
+- Coverage vs blueprint: flags under-drilled high-weight domains
 - Recent quiz scores, Repeat-Miss Watchlist, recent misses
 - Source priority strip
 
-Each course dashboard is rebuilt automatically by a `.claude` hook whenever `courses/{slug}/data/state.json` changes — after the state has passed schema validation. Refresh the tab after each session to see the latest snapshot. See [`docs/DASHBOARD.md`](docs/DASHBOARD.md) for full details.
+See [`docs/DASHBOARD.md`](docs/DASHBOARD.md) for internals and pass-probability framing.
+
+---
+
+## How the coach works
+
+A few design choices that make this different from a study tracker:
+
+- **Separate rules vs traps files** — `cheatsheet.md` holds forward-looking decision rules; `misses.md` holds retrospective trap patterns. Different mental modes; mixing them dilutes both.
+- **Repeat-Miss Watchlist** — miss the same trap twice and it's auto-promoted to the highest-priority drill surface. No manual curation.
+- **Honest calibration** — numeric estimates from your own history, not vibes. The coach debiases its readiness estimate from your predicted-vs-actual record once there are ≥ 5 calibration points.
+- **Source-aware answers** — primary > secondary > tertiary. When sources disagree the coach follows the declared hierarchy; when all sources are silent it says so rather than guessing.
+- **Source-grounding gate** — a `Stop` hook refuses to end the turn if the coach claims to deliver Day N without having read the cited source ranges in the current session. "Read sources before teaching" is a runtime invariant, not a rule. See [`docs/DESIGN.md`](docs/DESIGN.md) § 10.
+
+Full design rationale and rejected alternatives: [`docs/DESIGN.md`](docs/DESIGN.md).
+
+---
+
+## Setup interview (`/init-coach`)
+
+A guided interview — no manual file editing. You'll be asked:
+
+1. **Exam name** — full name + short abbreviation (e.g., `"AWS Solutions Architect Associate (SAA-C03)"`)
+2. **Exam date** — `YYYY-MM-DD`, or `"ongoing"` if not date-bound
+3. **Your name** — optional; used in tone
+4. **Your background** — role, prior experience, known gaps (1–3 sentences)
+5. **How you learn best** — scenarios/hands-on, lecture-style, drilling, or mixed
+6. **Exam domains** — with weights if known (`"D1: 30%, D2: 22%"`), without (equal split), or `"no blueprint"`
+7. **Scenario vs recall** — integrated case reasoning or primarily recall? Affects phase plan shape.
+8. **Scoring & question format** — fixed-percent / scaled / pass-fail-unknown; 4 or 5 options; single- or multiple-correct. Skip with `"default"`. Full spec: [`docs/EXAM-PROFILES.md`](docs/EXAM-PROFILES.md).
+9. **Total study days**
+10. **Source materials** — paths to drop in, or `"I'll add them later"`
+11. **Question bank** — real practice questions for `bank/`, or `"no"`. See [`docs/SETUP.md`](docs/SETUP.md#adding-a-question-bank-optional).
+12. **Reference resources** — courses, docs, community links (optional)
+
+After the interview, the coach generates your `CLAUDE.md`, copies and fills all starter files, writes `data/state.json`, and renders the first `dashboard/index.html`.
+
+---
+
+## Repo layout
+
+Each course lives in its own folder under `courses/`. Multiple courses can run in parallel with clean separation.
+
+```
+courses/
+└── saa-c03/               ← one folder per course
+    ├── CLAUDE.md           ← course-specific coach (generated by /init-coach)
+    ├── memory.md           ← session log
+    ├── progress.md         ← phase/day tracker
+    ├── cheatsheet.md       ← forward-looking decision rules
+    ├── misses.md           ← trap index + Repeat-Miss Watchlist
+    ├── cases.md            ← case patterns
+    ├── SOURCES.md          ← source priority declarations
+    ├── DIAGNOSTIC.md       ← pre-study diagnostic results
+    ├── CALIBRATION.md      ← predicted vs actual log
+    ├── sources/            ← your study materials
+    ├── bank/               ← optional real practice questions
+    ├── quizzes/            ← per-day quiz records
+    ├── data/state.json     ← canonical structured state (source of truth)
+    └── dashboard/
+        └── index.html      ← build artifact (auto-rebuilt on every state write)
+```
+
+Root-level files (template machinery — never modified during study):
+
+| File | Purpose |
+|---|---|
+| `CLAUDE.md` | Multi-course dispatcher |
+| `CLAUDE.md.template` | Template for per-course CLAUDE.md |
+| `templates/` | Format guides and the JSON schema for `state.json` |
+| `starter-files/` | Blank skeletons copied by `/init-coach` |
+| `dashboard/dashboard.css` + `.js` | Shared dashboard source (copied per course) |
+| `scripts/build-dashboard.mjs` | Migrate → validate → render: rebuilds `dashboard/index.html` from `state.json` |
+| `.claude/settings.json` | Hook config — rebuilds dashboard on every `state.json` write |
+| `package.json` | Node tooling (`ajv` for schema validation) |
+| `docs/` | Design rationale, setup guide, endgame playbook, dashboard internals |
+
+`data/state.json` is canonical. All numeric and structural fields live there. Markdown files are human-readable views. The dashboard is a deterministic build artifact.
 
 ---
 
@@ -234,22 +170,177 @@ Each course dashboard is rebuilt automatically by a `.claude` hook whenever `cou
 
 | File | Contents |
 |---|---|
-| [`docs/SETUP.md`](docs/SETUP.md) | Full setup guide, manual customization path, day-to-day reference |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | Why the template is designed the way it is — rejected alternatives and rationale |
-| [`docs/EXAM-PROFILES.md`](docs/EXAM-PROFILES.md) | The `examProfile` descriptor — every parameterization axis (blueprint mode, scoring model, question format), with defaults |
-| [`docs/ENDGAME.md`](docs/ENDGAME.md) | Final-72-hour playbook: last week, Day -3, Day -2, rest day, exam day |
-| [`docs/DASHBOARD.md`](docs/DASHBOARD.md) | Dashboard internals, regeneration flow, pass-probability framing |
+| [`docs/SETUP.md`](docs/SETUP.md) | Full setup guide, manual customization, day-to-day reference |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | Design rationale and rejected alternatives |
+| [`docs/EXAM-PROFILES.md`](docs/EXAM-PROFILES.md) | Every exam parameterization axis with defaults |
+| [`docs/ENDGAME.md`](docs/ENDGAME.md) | Final-72-hour playbook |
+| [`docs/DASHBOARD.md`](docs/DASHBOARD.md) | Dashboard internals and pass-probability framing |
 
 ---
 
-## Status
+---
 
-**v2 (current — schema `2.3`).** MCQ parameterization landed: blueprint degradation (weighted / unweighted / none), scoring variants (fixed-percent / scaled / pass-fail-unknown), question formats (4-or-5 options, multi-correct with all-or-nothing or partial credit), the recall-vs-scenario mix, the trap-vs-confusion miss bifurcation, the closed calibration debias loop, question-bank import with a 2× calibration weight, the coverage-vs-blueprint dashboard check, the source-grounding delivery gate, and the optional all-local semantic retrieval tier (vector mode). MIT licensed.
+## ⚡ Advanced: Semantic Retrieval (optional)
 
-## Roadmap
+By default the coach reads your `sources/` files directly. As your materials grow, an optional local retrieval layer helps it find the relevant passages for each day's topics automatically — no cloud, no API keys, runs entirely on your machine.
 
-- **v2.x (remaining):** sparse-source handling — what the coach does when authoritative sources are partial or missing.
-- **Future (gated on adoption):** Claude Code plugin packaging — wrap the template + commands + hooks as an installable plugin. Not scoped yet; decision pending real-world usage.
+### What it does
+
+When active, the coach queries your embedded sources at the start of each session and reads only the top-ranked passages for the day's task statements — typically ~10–24 KB instead of re-reading hundreds of KB of material. This makes source-grounded answers faster and more precise.
+
+There are two tiers:
+
+| Tier | What it needs | What it does |
+|---|---|---|
+| **Index** (default, no install) | Nothing | `/index-sources` builds a `topic → file:line` map. Coach reads only the cited ranges. |
+| **Vector** (optional) | ~23 MB model, one npm command | Semantic embedding search. Better recall across paraphrased content. |
+
+The index tier is what `/index-sources` already gives you. Vector mode is the optional add-on.
+
+### When to use vector mode
+
+- Your `sources/` folder is large (> ~100 KB total)
+- You want semantic matching (finds relevant content even when exact terminology differs)
+- You're comfortable with a one-time ~23 MB model download
+
+If you just want basic source-grounding, the index tier (`/index-sources`) is enough.
+
+### Dependencies
+
+- Node.js ≥ 18 (already required)
+- `@huggingface/transformers` — installed by the setup command below, **not** recorded in `package.json`
+- ~23 MB model download on first run (cached to `.cache/`, CPU-only, works offline after)
+
+> **⚠️ Note:** `npm run setup:retrieval` installs the embedding runtime with `--no-save`. Running `npm install` or `npm ci` later will remove it — re-run `npm run setup:retrieval` if vector mode reports the runtime is missing.
+
+### Setup
+
+**Step 1** — Install the embedding runtime:
+```bash
+npm run setup:retrieval
+```
+
+**Step 2** — Create `courses/{slug}/data/retrieval-config.json`:
+```json
+{ "mode": "vector", "model": "Xenova/all-MiniLM-L6-v2", "topK": 8, "byteBudget": 24000 }
+```
+
+**Step 3** — Build the embeddings:
+```bash
+npm run embeddings:build -- {slug}
+```
+
+That's it. Re-embedding runs automatically via a hook whenever `sources/` or `bank/` changes.
+
+### Fallback and disabling
+
+The coach degrades automatically: **vector → index → direct**. To turn vector mode off, delete `retrieval-config.json` or set `"mode": "direct"`.
+
+---
+
+## How to read the dashboard
+
+A glossary of every metric and concept shown in the dashboard.
+
+---
+
+### Readiness card
+
+**Cold-water estimate**
+The coach's honest, unvarnished guess at what you'd score on the real exam today, expressed as a percent — written after each quiz or phase exam. "Cold water" because it's meant to be sobering, not encouraging: the coach is asked to correct for optimism bias before writing the number.
+
+**Debiased estimate**
+The cold-water estimate corrected for your systematic over- or underconfidence: `debiased = cold_water + bias_correction`. This is the headline number shown in the readiness card. Until there are ≥ 5 calibration entries it equals the raw cold-water estimate (no data yet to debias from).
+
+**Bias correction**
+The weighted mean of all your calibration deltas (bank deltas count 2×, synthetic 1×): if you've been consistently predicting 5% higher than you actually score, bias = −5 and the debiased estimate is pulled down by 5 points. A negative value means overconfident; positive means underconfident. Shown in the summary line as *"debiased by −3.3% (overconfident over 5 quizzes)"* so the correction is auditable.
+
+**Margin over pass mark**
+`debiased_estimate − pass_mark` — how far above (positive) or below (negative) the passing cut your debiased estimate sits right now. Green when positive, red when negative.
+
+**Rough pass probability**
+The probability that your actual exam score will meet or exceed the pass mark, modeled as a normal distribution: `P = 1 − Φ((pass_mark − debiased_estimate) / noise_std_dev)`, where Φ is the standard normal CDF. It's "rough" because it assumes your exam-day score is drawn from a normal distribution centered on your debiased estimate — a simplification, not a guarantee. Color-coded: ≥ 95% green, ≥ 75% amber, < 75% red.
+
+**Noise std dev** (`±X% noise`)
+The spread of the normal distribution used in the pass-probability calculation — how much exam-day variance to expect. Before 5 calibration entries, uses a conservative ±7% prior. After ≥ 5 entries, uses the observed weighted standard deviation of your calibration deltas, clamped to a 3% floor (to prevent overconfident probabilities on low-variance small samples).
+
+---
+
+### Calibration table
+
+**Predicted %**
+What you said your score would be before taking the quiz — entered as a self-assessment and stored in `calibration[].predictedPercent`.
+
+**Actual %**
+What you actually scored — stored in `calibration[].actualPercent`.
+
+**Delta**
+`actual − predicted`. Negative = overconfident (predicted higher than you scored); positive = underconfident. Color-coded per entry: |delta| ≤ 3 → green (well-calibrated), ≤ 7 → amber, > 7 → red.
+
+**BANK / SYN badge**
+Whether the quiz drew from your imported question bank (`BANK`) or from coach-generated questions (`SYN`). Bank questions are verbatim practice material closer to real-exam conditions, so their deltas count 2× synthetic in the bias and noise calculations.
+
+---
+
+### Domain Coverage
+
+**Coverage bar per domain**
+Percentage of study days planned for this domain that are marked complete. A day is counted toward a domain if any of its `topics[]` strings match a `taskStatement` in that domain — exact string match. Days that span two domains (e.g., a phase-exam day) count toward both.
+
+**Blueprint weight** (the `30%` chip next to the domain name)
+The exam vendor's declared share of questions from this domain. Set during `/init-coach` from the official exam guide. This is the target — the Coverage vs Blueprint card measures whether your actual study time matches it.
+
+---
+
+### Coverage vs Blueprint
+
+This card answers: *are you spending your study time in the same proportions as the exam allocates its questions?*
+
+**Effort %**
+Your actual study time share for this domain: `(completed days touching this domain) ÷ (total completed day-touches across all domains) × 100`. A domain with 2 of 5 completed day-touches has 40% effort share.
+
+**Expected %**
+The target share, derived from the blueprint: `domain_weight ÷ sum_of_all_weights × 100` in weighted mode, or `100 ÷ number_of_domains` when all domains are equal. A 30%-weighted domain in a 4-domain exam has an expected share of 30%.
+
+**Δ (delta)**
+`effort − expected` in percentage points. Negative means you've studied this domain less than its blueprint weight calls for (under-drilled). Positive means more (over-drilled). Domains more than 5pp below expected are flagged and listed in the footer.
+
+*The card requires at least 3 completed days before showing results — gap analysis on 1–2 days is dominated by which day happened to be first, not by real drift.*
+
+---
+
+### Repeat-Miss Watchlist
+
+Misses that have occurred **2 or more times** are automatically promoted here — no manual curation. Items are listed in priority order (position 1 = highest drill priority). Each item shows its type (trap or confusion), how many times it's appeared, when it was last seen, and the diagnostic note written by the coach.
+
+**Trap** — a question pattern that keeps catching you out, usually because of a subtle service behavior or an over-engineered answer that looks right but isn't.
+
+**Confusion** — two concepts you keep mixing up, shown as an A vs B pair with the distinguishing rule stated explicitly.
+
+---
+
+### Qualitative band (pass/fail exams only)
+
+Shown instead of margin and probability when the exam has no published passing cut (`pass_fail_unknown` scoring model). Derived from the debiased estimate alone:
+
+| Band | Debiased estimate |
+|---|---|
+| Strong — comfortable margin | ≥ 85% |
+| Likely passing | ≥ 75% |
+| Marginal — could go either way | ≥ 65% |
+| Weak — more work needed | < 65% |
+
+---
+
+
+
+**Current: v2 (schema `2.3`)** — MCQ parameterization, blueprint variants, scoring variants, question formats, question-bank import, calibration debias loop, coverage-vs-blueprint check, source-grounding delivery gate, optional semantic retrieval. MIT licensed.
+
+**v2.x:** Sparse-source handling — what the coach does when authoritative sources are thin or missing.
+
+**Future (gated on adoption):** Claude Code plugin packaging.
+
+---
 
 ## License
 
