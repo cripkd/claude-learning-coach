@@ -250,91 +250,100 @@ A glossary of every metric and concept shown in the dashboard.
 
 ---
 
+### How data gets into the dashboard
+
+The dashboard isn't a form you fill in — everything populates automatically through normal coach sessions.
+
+- **After every study day**, the coach marks it complete and records what topics were covered.
+- **After every quiz**, the coach logs your score. Before the quiz starts, it asks what you think you'll score — that prediction is stored alongside the result so it can track whether you're over- or underconfident over time.
+- **When you answer a question wrong**, the coach logs it as a miss with a short diagnostic note. If you get the same thing wrong twice, it's automatically promoted to the Watchlist — no manual curation.
+- **The readiness estimate** is updated by the coach at the end of each session, as a plain-language assessment of where you stand right now.
+- **The dashboard rebuilds itself** in the background every time any of the above changes. Refresh your browser tab after a session to see the latest.
+
+Nothing requires manual data entry. The only thing you do is study.
+
+---
+
 ### Readiness card
 
 **Cold-water estimate**
-The coach's honest, unvarnished guess at what you'd score on the real exam today, expressed as a percent — written after each quiz or phase exam. "Cold water" because it's meant to be sobering, not encouraging: the coach is asked to correct for optimism bias before writing the number.
+The coach's honest assessment of what you'd score on the real exam today, as a percent. Written after each quiz or phase exam. Called "cold water" because it's meant to be sobering — the coach is explicitly asked not to be encouraging here.
 
 **Debiased estimate**
-The cold-water estimate corrected for your systematic over- or underconfidence: `debiased = cold_water + bias_correction`. This is the headline number shown in the readiness card. Until there are ≥ 5 calibration entries it equals the raw cold-water estimate (no data yet to debias from).
-
-**Bias correction**
-The weighted mean of all your calibration deltas (bank deltas count 2×, synthetic 1×): if you've been consistently predicting 5% higher than you actually score, bias = −5 and the debiased estimate is pulled down by 5 points. A negative value means overconfident; positive means underconfident. Shown in the summary line as *"debiased by −3.3% (overconfident over 5 quizzes)"* so the correction is auditable.
+The cold-water estimate adjusted for your personal over- or underconfidence pattern, tracked across all your quizzes. If you've been consistently predicting 5% higher than you actually score, this number gets pulled down accordingly. The headline figure shown in the readiness card. Kicks in after 5 quizzes; before that it equals the raw cold-water estimate.
 
 **Margin over pass mark**
-`debiased_estimate − pass_mark` — how far above (positive) or below (negative) the passing cut your debiased estimate sits right now. Green when positive, red when negative.
+How far above or below the passing cut your debiased estimate sits — positive means you're above it, negative means below. Green when positive, red when negative.
 
 **Rough pass probability**
-The probability that your actual exam score will meet or exceed the pass mark, modeled as a normal distribution: `P = 1 − Φ((pass_mark − debiased_estimate) / noise_std_dev)`, where Φ is the standard normal CDF. It's "rough" because it assumes your exam-day score is drawn from a normal distribution centered on your debiased estimate — a simplification, not a guarantee. Color-coded: ≥ 95% green, ≥ 75% amber, < 75% red.
+A statistical estimate of the probability you pass on exam day, based on your debiased estimate and the spread in your past quiz results. Called "rough" because it's a model, not a guarantee — exam day has real variance. Color-coded: ≥ 95% green, ≥ 75% amber, < 75% red.
 
-**Noise std dev** (`±X% noise`)
-The spread of the normal distribution used in the pass-probability calculation — how much exam-day variance to expect. Before 5 calibration entries, uses a conservative ±7% prior. After ≥ 5 entries, uses the observed weighted standard deviation of your calibration deltas, clamped to a 3% floor (to prevent overconfident probabilities on low-variance small samples).
+**`±X% noise`** (shown next to the probability)
+How much variance the model assumes in your exam-day score. Starts at ±7% (a conservative default) and narrows toward your observed quiz-to-quiz variance once you have 5+ calibration entries.
 
 ---
 
 ### Calibration table
 
 **Predicted %**
-What you said your score would be before taking the quiz — entered as a self-assessment and stored in `calibration[].predictedPercent`.
+What you said you'd score before taking the quiz — collected as a quick self-assessment at the start of each session.
 
 **Actual %**
-What you actually scored — stored in `calibration[].actualPercent`.
+What you actually scored.
 
 **Delta**
-`actual − predicted`. Negative = overconfident (predicted higher than you scored); positive = underconfident. Color-coded per entry: |delta| ≤ 3 → green (well-calibrated), ≤ 7 → amber, > 7 → red.
+Actual minus predicted. Negative means you predicted higher than you scored (overconfident); positive means the opposite. Color-coded: within ±3 is green (well-calibrated), within ±7 is amber, beyond ±7 is red.
 
 **BANK / SYN badge**
-Whether the quiz drew from your imported question bank (`BANK`) or from coach-generated questions (`SYN`). Bank questions are verbatim practice material closer to real-exam conditions, so their deltas count 2× synthetic in the bias and noise calculations.
+Whether the quiz used questions from your imported practice bank (BANK) or questions the coach generated (SYN). Bank questions are closer to the real exam, so they carry more weight in the readiness calculations.
 
 ---
 
 ### Domain Coverage
 
 **Coverage bar per domain**
-Percentage of study days planned for this domain that are marked complete. A day is counted toward a domain if any of its `topics[]` strings match a `taskStatement` in that domain — exact string match. Days that span two domains (e.g., a phase-exam day) count toward both.
+What percentage of planned study days for this domain are complete. A day counts toward a domain if its topics match that domain's material. Days that cover multiple domains — like a phase review — count toward each one they touch.
 
-**Blueprint weight** (the `30%` chip next to the domain name)
-The exam vendor's declared share of questions from this domain. Set during `/init-coach` from the official exam guide. This is the target — the Coverage vs Blueprint card measures whether your actual study time matches it.
+**Blueprint weight** (the `30%` next to the domain name)
+The exam vendor's declared share of questions from this domain. This is the target; the Coverage vs Blueprint card below measures whether your study time is actually tracking it.
 
 ---
 
 ### Coverage vs Blueprint
 
-This card answers: *are you spending your study time in the same proportions as the exam allocates its questions?*
+Answers the question: *are you spending time on each domain in proportion to how much it appears on the exam?*
 
 **Effort %**
-Your actual study time share for this domain: `(completed days touching this domain) ÷ (total completed day-touches across all domains) × 100`. A domain with 2 of 5 completed day-touches has 40% effort share.
+Your actual study time share for this domain — what fraction of your completed study days touched this domain's material.
 
 **Expected %**
-The target share, derived from the blueprint: `domain_weight ÷ sum_of_all_weights × 100` in weighted mode, or `100 ÷ number_of_domains` when all domains are equal. A 30%-weighted domain in a 4-domain exam has an expected share of 30%.
+The target share, taken from the exam blueprint. A domain worth 30% of the exam should ideally receive about 30% of your study effort.
 
 **Δ (delta)**
-`effort − expected` in percentage points. Negative means you've studied this domain less than its blueprint weight calls for (under-drilled). Positive means more (over-drilled). Domains more than 5pp below expected are flagged and listed in the footer.
-
-*The card requires at least 3 completed days before showing results — gap analysis on 1–2 days is dominated by which day happened to be first, not by real drift.*
+Effort minus expected. Negative means under-studied relative to the blueprint; positive means over-studied. Domains more than 5 points below are flagged. Needs at least 3 completed days before it shows results.
 
 ---
 
 ### Repeat-Miss Watchlist
 
-Misses that have occurred **2 or more times** are automatically promoted here — no manual curation. Items are listed in priority order (position 1 = highest drill priority). Each item shows its type (trap or confusion), how many times it's appeared, when it was last seen, and the diagnostic note written by the coach.
+Questions you've gotten wrong **2 or more times** are automatically promoted here, in priority order. Each entry shows what type of mistake it is, how many times it's appeared, when you last saw it, and the coach's diagnostic note on why you keep missing it.
 
-**Trap** — a question pattern that keeps catching you out, usually because of a subtle service behavior or an over-engineered answer that looks right but isn't.
+**Trap** — a question pattern that keeps catching you, usually a subtle but consistent wrong instinct (e.g., always reaching for the more complex solution when a simpler one suffices).
 
-**Confusion** — two concepts you keep mixing up, shown as an A vs B pair with the distinguishing rule stated explicitly.
+**Confusion** — two concepts you keep mixing up, shown side by side with the rule that distinguishes them.
 
 ---
 
 ### Qualitative band (pass/fail exams only)
 
-Shown instead of margin and probability when the exam has no published passing cut (`pass_fail_unknown` scoring model). Derived from the debiased estimate alone:
+For exams with no published passing score, shown in place of the margin and probability:
 
-| Band | Debiased estimate |
+| Band | What it means |
 |---|---|
-| Strong — comfortable margin | ≥ 85% |
-| Likely passing | ≥ 75% |
-| Marginal — could go either way | ≥ 65% |
-| Weak — more work needed | < 65% |
+| Strong — comfortable margin | On track, clear buffer |
+| Likely passing | Above the threshold, moderate confidence |
+| Marginal — could go either way | Close call — more work recommended |
+| Weak — more work needed | Not ready yet |
 
 ---
 
