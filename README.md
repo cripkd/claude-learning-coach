@@ -11,7 +11,22 @@ Built primarily for certification exams (AWS, Azure, GCP, and similar), but usab
 ---
 
 **Contents**
-[See it in action](#see-it-in-action) · [Quick Start](#quick-start) · [What you bring / What it does](#what-you-bring--what-it-does) · [Day-to-day use](#day-to-day-use) · [Dashboard](#dashboard) · [How the coach works](#how-the-coach-works) · [Setup interview](#setup-interview-init-coach) · [Repo layout](#repo-layout) · [Docs](#docs) · [⚡ Advanced: Semantic Retrieval](#-advanced-semantic-retrieval-optional) · [How to read the dashboard](#how-to-read-the-dashboard) · [License](#license)
+- [See it in action](#see-it-in-action)
+- [Quick Start](#quick-start)
+- [What you bring / What it does](#what-you-bring--what-it-does)
+- [Day-to-day use](#day-to-day-use)
+- [Dashboard](#dashboard)
+- [How the coach works](#how-the-coach-works)
+- [Setup interview](#setup-interview-init-coach)
+- [Repo layout](#repo-layout)
+- [Docs](#docs)
+- [⚡ Advanced: Semantic Retrieval](#-advanced-semantic-retrieval-optional)
+- [How to read the dashboard](#how-to-read-the-dashboard)
+- [License](#license)
+
+---
+
+![Dashboard screenshot](docs/dashboard.png)
 
 ---
 
@@ -96,7 +111,7 @@ Shows:
 - Recent quiz scores, Repeat-Miss Watchlist, recent misses
 - Source priority strip
 
-See [`docs/DASHBOARD.md`](docs/DASHBOARD.md) for internals and pass-probability framing.
+See [`docs/DASHBOARD.md`](docs/DASHBOARD.md) for internals and pass-probability framing, or [How to read the dashboard](#how-to-read-the-dashboard) below for a plain-English glossary of every metric.
 
 ---
 
