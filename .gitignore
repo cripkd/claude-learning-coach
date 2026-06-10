@@ -43,6 +43,7 @@ projects/
 /SOURCES.md
 /DIAGNOSTIC.md
 /CALIBRATION.md
+tasks/
 
 # ── Node ─────────────────────────────────────────────────────
 node_modules/

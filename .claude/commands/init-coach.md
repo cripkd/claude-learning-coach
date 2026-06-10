@@ -9,7 +9,7 @@ Set up this repo as a personalized study coach for a specific exam or learning g
 Before asking any questions, list the `courses/` directory. Each subfolder is an existing course (its name is the course slug).
 
 **If a matching course already exists** (you can determine "matching" after Q1 gives you the exam short name to derive the slug):
-Ask: "A course for [name] already exists at `courses/{slug}/`. What would you like to do?"
+Ask: "A course for [name] already exists at `courses/{slug}/`. What would you like to do?". Ask this via the AskUserQuestion tool and present these options:
 - `"reconfigure"` — re-run the full interview; regenerate `courses/{slug}/CLAUDE.md`, starter files, `data/state.json`, and `dashboard/index.html` for that course. Preserve existing `memory.md`, `misses.md`, `DIAGNOSTIC.md`, `CALIBRATION.md`, and `quizzes/` — these contain live session data.
 - `"update fields"` — ask which fields to change; update only those and regenerate state + dashboard
 - `"cancel"` — abort with no changes
@@ -23,7 +23,7 @@ Ask: "A course for [name] already exists at `courses/{slug}/`. What would you li
 ## Step 1: Interview
 
 Ask the following questions. You may ask 2–3 at a time to reduce back-and-forth, but do not ask all 10 at once — the student needs to think through each one. Collect all answers before proceeding to Step 2.
-
+Ask the questions via the AskUserQuestion tool especially where the user will be given ready-made options or suggestions.
 ### Q1 — Exam name
 > What exam or certification are you preparing for? Give me the full name and a short abbreviation.
 > Example: "AWS Solutions Architect Associate (SAA-C03)" or "California Bar Exam (CA Bar)".
