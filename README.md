@@ -1,6 +1,12 @@
 # Exam Coach
 
-A Claude Code-powered study coach for scenario-based multiple-choice certification exams — AWS, Azure, GCP, Anthropic, and similar vendors with a published, weighted domain blueprint. Clone it, run one command, answer ~10 questions, and you have a personalized coach that remembers sessions, tracks progress, runs quizzes, and calibrates against your exam date.
+Most people study for certifications the same way: watch a course, take notes, do a practice test the week before, and hope for the best. There's no real feedback loop. No honest signal on whether the hours are actually moving the needle. No one to ask when something doesn't click at 11pm.
+
+This is a personal study coach that builds a structured plan around your exam, teaches the material, quizzes you, and tells you — with a number, not a feeling — whether you're ready to pass. When you don't understand something, you ask in plain English. It explains, re-explains from a different angle, and has unlimited time to do it. Between sessions it remembers where you left off. Over time it tracks which concepts you keep getting wrong and makes sure they get drilled before exam day.
+
+**It works even if your exam doesn't have a well-defined curriculum.** Bring whatever materials you have — official guides, course notes, community cheatsheets — and it builds the curriculum from them. Bring nothing at all, and it works from its own knowledge. No exam at the end? That's fine too — it's a tutor, not just an exam-prep tool.
+
+Built primarily for certification exams (AWS, Azure, GCP, and similar), but usable for any structured knowledge domain Claude has knowledge of.
 
 ---
 
