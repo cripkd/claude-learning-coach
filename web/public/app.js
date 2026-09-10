@@ -183,4 +183,59 @@ input.addEventListener('keydown', (e) => {
   }
 });
 
+// ─── Resizable splitter ────────────────────────────────────────────────────
+(function initSplitter() {
+  const splitter = el('splitter');
+  const main = document.querySelector('main');
+  const MIN_CHAT = 300; // px — don't let either pane collapse
+  const MIN_DASH = 360;
+  const KEY = 'coach.chatWidthPct';
+
+  const clampPct = (pct) => {
+    const w = main.clientWidth || window.innerWidth;
+    const lo = (MIN_CHAT / w) * 100;
+    const hi = 100 - ((MIN_DASH + 6) / w) * 100;
+    return Math.min(Math.max(pct, lo), Math.max(lo, hi));
+  };
+  const setPct = (pct) => document.documentElement.style.setProperty('--chat-w', `${pct}%`);
+
+  const saved = parseFloat(localStorage.getItem(KEY));
+  if (!Number.isNaN(saved)) setPct(clampPct(saved));
+
+  let dragging = false;
+  const onMove = (e) => {
+    if (!dragging) return;
+    const rect = main.getBoundingClientRect();
+    const pct = clampPct(((e.clientX - rect.left) / rect.width) * 100);
+    setPct(pct);
+  };
+  const stop = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    main.classList.remove('resizing');
+    splitter.releasePointerCapture?.(e.pointerId);
+    const cur = getComputedStyle(document.documentElement).getPropertyValue('--chat-w');
+    localStorage.setItem(KEY, parseFloat(cur));
+  };
+
+  splitter.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    main.classList.add('resizing');
+    splitter.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
+  splitter.addEventListener('pointermove', onMove);
+  splitter.addEventListener('pointerup', stop);
+  splitter.addEventListener('pointercancel', stop);
+
+  // Keyboard: arrow keys nudge, double-click resets to default.
+  splitter.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 8 : 3;
+    const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chat-w')) || 46;
+    if (e.key === 'ArrowLeft') { setPct(clampPct(cur - step)); localStorage.setItem(KEY, clampPct(cur - step)); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { setPct(clampPct(cur + step)); localStorage.setItem(KEY, clampPct(cur + step)); e.preventDefault(); }
+  });
+  splitter.addEventListener('dblclick', () => { setPct(46); localStorage.removeItem(KEY); });
+})();
+
 loadCourses();
