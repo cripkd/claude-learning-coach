@@ -16,6 +16,33 @@
     <a id="openDash" href="#" target="_blank" rel="noopener">Open dashboard ↗</a>
   </header>
 
+  <div id="authOverlay" class="auth-overlay" hidden>
+    <div class="auth-card">
+      <h1>Connect your Claude account</h1>
+      <p class="auth-sub">The coach runs on your Claude subscription — no API key. Sign in once; it’s remembered after that.</p>
+
+      <div id="authIntro">
+        <button id="authConnect" class="auth-btn">Sign in with Claude</button>
+        <button id="authConsole" class="auth-link">Use Anthropic API billing instead</button>
+        <p class="auth-note">Requires an active Claude subscription (Pro or Max).</p>
+      </div>
+
+      <div id="authProgress" hidden>
+        <p class="auth-status" id="authStatusLine">Opening the sign-in page in your browser…</p>
+        <a id="authUrl" class="auth-url" href="#" target="_blank" rel="noopener" hidden>Open the sign-in page ↗</a>
+        <pre id="authLog" class="auth-log" hidden></pre>
+        <details class="auth-fallback">
+          <summary>Sign-in page didn’t open?</summary>
+          <p>Run this once in a terminal, then come back:</p>
+          <pre><code>claude auth login</code></pre>
+          <button id="authRecheck" class="auth-link">I’ve signed in — check again</button>
+        </details>
+      </div>
+
+      <p id="authError" class="auth-error" hidden></p>
+    </div>
+  </div>
+
   <main>
     <section class="chat" aria-label="Coach chat">
       <div id="log" class="log">

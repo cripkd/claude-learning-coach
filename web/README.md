@@ -26,8 +26,17 @@ npm install        # once — pulls @anthropic-ai/claude-agent-sdk
 npm run web        # then open http://localhost:4173
 ```
 
-First run may prompt a one-time `claude` login if you've never authenticated the CLI.
-After that the web UI reuses that session — no API key, no re-login.
+First run, if the `claude` CLI has never been authenticated, the app shows a
+**"Connect your Claude account"** screen instead of the chat. Click *Sign in with
+Claude*, complete the sign-in page it opens, and the app unlocks itself once the
+CLI reports a valid session. No terminal, no API key. After that the login is
+remembered (Keychain) and the screen never reappears — unless the token later
+expires, in which case a failed turn re-surfaces it.
+
+Under the hood the screen drives `claude auth login` (subscription) or, via the
+secondary link, `claude auth login --console` (API billing). If the spawned
+sign-in can't open a browser, the screen offers a copy-paste `claude auth login`
+terminal fallback and a "check again" button.
 
 ## How it works
 

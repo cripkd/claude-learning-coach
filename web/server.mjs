@@ -25,6 +25,8 @@ import { readFile, readdir, stat, watch } from 'node:fs/promises';
 import { existsSync, watch as watchSync } from 'node:fs';
 import { dirname, resolve, join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+import { platform } from 'node:process';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -156,6 +158,69 @@ async function serveFile(res, rootDir, relPath) {
   }
 }
 
+// ─── Claude account auth ───────────────────────────────────────────────────────
+// The Agent SDK can only *use* stored credentials, never obtain them — OAuth is
+// interactive. These endpoints let the browser detect the logged-out state and
+// drive `claude auth login` (which opens a browser + localhost callback) without
+// the student ever opening a terminal. A copy-paste command is the fallback if the
+// spawned flow needs a TTY.
+
+const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
+const URL_RE = /(https?:\/\/[^\s"']+)/;
+
+function authStatus() {
+  return new Promise((resolveP) => {
+    const child = spawn(CLAUDE_BIN, ['auth', 'status', '--json'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    child.stdout.on('data', (d) => { out += d; });
+    child.on('error', () => resolveP({ loggedIn: false, error: 'claude CLI not found' }));
+    child.on('close', () => {
+      try { resolveP(JSON.parse(out)); }
+      catch { resolveP({ loggedIn: false }); }
+    });
+  });
+}
+
+function openInBrowser(target) {
+  const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'cmd' : 'xdg-open';
+  const args = platform === 'win32' ? ['/c', 'start', '', target] : [target];
+  try { spawn(cmd, args, { stdio: 'ignore', detached: true }).unref(); } catch { /* best effort */ }
+}
+
+// SSE: spawn `claude auth login`, stream its output (URL + prompts) to the UI,
+// auto-open the URL, then report the final status.
+function handleAuthLogin(res, provider) {
+  sseInit(res);
+  const providerFlag = provider === 'console' ? '--console' : '--claudeai';
+  let child;
+  try {
+    child = spawn(CLAUDE_BIN, ['auth', 'login', providerFlag], { stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch {
+    sseSend(res, 'error', 'Could not run the claude CLI. Install it, then retry.');
+    return res.end();
+  }
+
+  let opened = false;
+  const scan = (chunk) => {
+    const text = String(chunk);
+    for (const line of text.split(/\r?\n/)) {
+      if (line.trim()) sseSend(res, 'log', line);
+    }
+    const m = text.match(URL_RE);
+    if (m && !opened) { opened = true; sseSend(res, 'url', m[1]); openInBrowser(m[1]); }
+  };
+  child.stdout.on('data', scan);
+  child.stderr.on('data', scan);
+  child.on('error', () => { sseSend(res, 'error', 'claude CLI not found'); res.end(); });
+  child.on('close', async () => {
+    const status = await authStatus();
+    sseSend(res, 'done', status);
+    res.end();
+  });
+
+  res.on('close', () => { try { child.kill(); } catch { /* noop */ } });
+}
+
 // ─── Chat turn (SSE) ───────────────────────────────────────────────────────────
 
 async function handleChat(req, res) {
@@ -244,6 +309,8 @@ const server = createServer(async (req, res) => {
 
   try {
     if (path === '/' ) return serveFile(res, PUBLIC_DIR, 'index.html');
+    if (path === '/api/auth/status') return send(res, 200, JSON.stringify(await authStatus()), { 'Content-Type': MIME['.json'] });
+    if (path === '/api/auth/login') return handleAuthLogin(res, url.searchParams.get('provider') || 'claudeai');
     if (path === '/api/courses') return send(res, 200, JSON.stringify(await listCourses()), { 'Content-Type': MIME['.json'] });
     if (path === '/api/chat' && req.method === 'POST') return handleChat(req, res);
     if (path === '/api/watch') return handleWatch(res, url.searchParams.get('slug') || '');

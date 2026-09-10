@@ -135,6 +135,9 @@ async function send(message) {
     } else if (evName === 'error') {
       bubble.classList.remove('thinking');
       bubble.textContent = text + `\n\n⚠️ ${data}`;
+      if (/auth|login|credential|unauthor|api key|token/i.test(String(data))) {
+        window.dispatchEvent(new Event('coach:maybe-auth-error'));
+      }
     }
   };
 
@@ -238,4 +241,90 @@ input.addEventListener('keydown', (e) => {
   splitter.addEventListener('dblclick', () => { setPct(46); localStorage.removeItem(KEY); });
 })();
 
-loadCourses();
+// ─── Auth gate ──────────────────────────────────────────────────────────────
+const auth = {
+  overlay: el('authOverlay'),
+  intro: el('authIntro'),
+  progress: el('authProgress'),
+  connect: el('authConnect'),
+  console: el('authConsole'),
+  statusLine: el('authStatusLine'),
+  url: el('authUrl'),
+  log: el('authLog'),
+  recheck: el('authRecheck'),
+  error: el('authError'),
+  errorEl: el('authError'),
+  source: null,
+  poll: null,
+};
+
+async function checkAuth() {
+  try {
+    const s = await fetch('/api/auth/status').then((r) => r.json());
+    return !!s.loggedIn;
+  } catch { return false; }
+}
+
+function showAuth() { auth.overlay.hidden = false; }
+function hideAuth() {
+  auth.overlay.hidden = true;
+  auth.source?.close();
+  clearInterval(auth.poll);
+}
+
+async function onSignedIn() {
+  hideAuth();
+  await loadCourses();
+}
+
+function startLogin(provider) {
+  auth.intro.hidden = true;
+  auth.progress.hidden = false;
+  auth.errorEl.hidden = true;
+  auth.log.hidden = true;
+  auth.log.textContent = '';
+
+  auth.source?.close();
+  auth.source = new EventSource(`/api/auth/login?provider=${encodeURIComponent(provider)}`);
+  auth.source.addEventListener('url', (e) => {
+    const u = JSON.parse(e.data);
+    auth.url.href = u; auth.url.hidden = false;
+    auth.statusLine.textContent = 'Sign in with the page that just opened, then return here.';
+  });
+  auth.source.addEventListener('log', (e) => {
+    auth.log.hidden = false;
+    auth.log.textContent += JSON.parse(e.data) + '\n';
+    auth.log.scrollTop = auth.log.scrollHeight;
+  });
+  auth.source.addEventListener('error', (e) => {
+    const msg = e.data ? JSON.parse(e.data) : 'Sign-in failed. Try the terminal command below.';
+    auth.errorEl.textContent = msg; auth.errorEl.hidden = false;
+  });
+  auth.source.addEventListener('done', (e) => {
+    const status = JSON.parse(e.data);
+    if (status.loggedIn) onSignedIn();
+    else { auth.statusLine.textContent = 'Not signed in yet — finish in the browser, then re-check.'; }
+  });
+
+  // Poll independently in case the login process completes the callback silently.
+  clearInterval(auth.poll);
+  auth.poll = setInterval(async () => { if (await checkAuth()) onSignedIn(); }, 2500);
+}
+
+auth.connect.addEventListener('click', () => startLogin('claudeai'));
+auth.console.addEventListener('click', () => startLogin('console'));
+auth.recheck.addEventListener('click', async () => {
+  if (await checkAuth()) onSignedIn();
+  else { auth.errorEl.textContent = 'Still not signed in.'; auth.errorEl.hidden = false; }
+});
+
+// Re-check auth whenever a turn fails on an auth-ish error (token expired mid-session).
+window.addEventListener('coach:maybe-auth-error', async () => {
+  if (!(await checkAuth())) { auth.intro.hidden = false; auth.progress.hidden = true; showAuth(); }
+});
+
+// Boot: gate the app behind auth, then load courses.
+(async () => {
+  if (await checkAuth()) loadCourses();
+  else showAuth();
+})();
