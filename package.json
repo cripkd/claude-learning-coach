@@ -4,6 +4,7 @@
   "description": "Claude Code-powered study coach for scenario-based multiple-choice certification exams. Build tooling for the dashboard artifact.",
   "private": true,
   "type": "module",
+  "main": "desktop/main.cjs",
   "engines": {
     "node": ">=18"
   },
@@ -14,10 +15,36 @@
     "build-example": "node scripts/build-dashboard.mjs example-saa-c03",
     "setup:retrieval": "npm install --no-save @huggingface/transformers && node scripts/build-embeddings.mjs --warmup",
     "embeddings:build": "node scripts/build-embeddings.mjs",
-    "web": "node web/server.mjs"
+    "web": "node web/server.mjs",
+    "desktop": "electron .",
+    "desktop:build": "electron-builder"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.267",
     "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.learningcoach.app",
+    "productName": "Learning Coach",
+    "asar": false,
+    "files": [
+      "desktop/**",
+      "web/**",
+      "dashboard/**",
+      "scripts/**",
+      "templates/**",
+      "starter-files/**",
+      ".claude/**",
+      "CLAUDE.md",
+      "CLAUDE.md.template",
+      "node_modules/**"
+    ],
+    "mac": { "target": "dmg", "category": "public.app-category.education" },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage", "category": "Education" }
   }
 }
