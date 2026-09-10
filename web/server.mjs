@@ -168,6 +168,12 @@ async function serveFile(res, rootDir, relPath) {
 const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 const URL_RE = /(https?:\/\/[^\s"']+)/;
 
+// The active `claude auth login` child, if a sign-in is in flight. This OAuth flow
+// is code-paste (not a localhost callback): the CLI prints a URL, the student
+// authorizes in the browser, copies a code from the redirect page, and that code
+// must be written to this process's stdin. /api/auth/code does the write.
+let authChild = null;
+
 function authStatus() {
   return new Promise((resolveP) => {
     const child = spawn(CLAUDE_BIN, ['auth', 'status', '--json'], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -192,13 +198,19 @@ function openInBrowser(target) {
 function handleAuthLogin(res, provider) {
   sseInit(res);
   const providerFlag = provider === 'console' ? '--console' : '--claudeai';
+
+  // Only one sign-in in flight at a time.
+  try { authChild?.kill(); } catch { /* noop */ }
+
   let child;
   try {
-    child = spawn(CLAUDE_BIN, ['auth', 'login', providerFlag], { stdio: ['ignore', 'pipe', 'pipe'] });
+    // stdin piped so /api/auth/code can feed the pasted OAuth code back in.
+    child = spawn(CLAUDE_BIN, ['auth', 'login', providerFlag], { stdio: ['pipe', 'pipe', 'pipe'] });
   } catch {
     sseSend(res, 'error', 'Could not run the claude CLI. Install it, then retry.');
     return res.end();
   }
+  authChild = child;
 
   let opened = false;
   const scan = (chunk) => {
@@ -207,18 +219,44 @@ function handleAuthLogin(res, provider) {
       if (line.trim()) sseSend(res, 'log', line);
     }
     const m = text.match(URL_RE);
-    if (m && !opened) { opened = true; sseSend(res, 'url', m[1]); openInBrowser(m[1]); }
+    if (m && !opened) {
+      opened = true;
+      sseSend(res, 'url', m[1]);
+      openInBrowser(m[1]);
+      // Signal the UI to reveal the code-paste box — this flow needs it.
+      sseSend(res, 'needcode', true);
+    }
   };
   child.stdout.on('data', scan);
   child.stderr.on('data', scan);
-  child.on('error', () => { sseSend(res, 'error', 'claude CLI not found'); res.end(); });
+  child.on('error', () => { authChild = null; sseSend(res, 'error', 'claude CLI not found'); res.end(); });
   child.on('close', async () => {
+    authChild = null;
     const status = await authStatus();
     sseSend(res, 'done', status);
     res.end();
   });
 
-  res.on('close', () => { try { child.kill(); } catch { /* noop */ } });
+  res.on('close', () => { if (authChild === child) { try { child.kill(); } catch { /* noop */ } authChild = null; } });
+}
+
+// Feed the pasted OAuth code into the in-flight login process's stdin.
+async function handleAuthCode(req, res) {
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  let body;
+  try { body = JSON.parse(raw || '{}'); } catch { return send(res, 400, 'Bad JSON'); }
+  const code = typeof body.code === 'string' ? body.code.trim() : '';
+  if (!code) return send(res, 400, JSON.stringify({ ok: false, error: 'empty code' }), { 'Content-Type': MIME['.json'] });
+  if (!authChild || !authChild.stdin.writable) {
+    return send(res, 409, JSON.stringify({ ok: false, error: 'no sign-in in progress' }), { 'Content-Type': MIME['.json'] });
+  }
+  try {
+    authChild.stdin.write(code + '\n');
+    return send(res, 200, JSON.stringify({ ok: true }), { 'Content-Type': MIME['.json'] });
+  } catch (err) {
+    return send(res, 500, JSON.stringify({ ok: false, error: String(err?.message || err) }), { 'Content-Type': MIME['.json'] });
+  }
 }
 
 // ─── Chat turn (SSE) ───────────────────────────────────────────────────────────
@@ -311,6 +349,7 @@ const server = createServer(async (req, res) => {
     if (path === '/' ) return serveFile(res, PUBLIC_DIR, 'index.html');
     if (path === '/api/auth/status') return send(res, 200, JSON.stringify(await authStatus()), { 'Content-Type': MIME['.json'] });
     if (path === '/api/auth/login') return handleAuthLogin(res, url.searchParams.get('provider') || 'claudeai');
+    if (path === '/api/auth/code' && req.method === 'POST') return handleAuthCode(req, res);
     if (path === '/api/courses') return send(res, 200, JSON.stringify(await listCourses()), { 'Content-Type': MIME['.json'] });
     if (path === '/api/chat' && req.method === 'POST') return handleChat(req, res);
     if (path === '/api/watch') return handleWatch(res, url.searchParams.get('slug') || '');

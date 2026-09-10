@@ -34,9 +34,14 @@ remembered (Keychain) and the screen never reappears — unless the token later
 expires, in which case a failed turn re-surfaces it.
 
 Under the hood the screen drives `claude auth login` (subscription) or, via the
-secondary link, `claude auth login --console` (API billing). If the spawned
-sign-in can't open a browser, the screen offers a copy-paste `claude auth login`
-terminal fallback and a "check again" button.
+secondary link, `claude auth login --console` (API billing). This OAuth flow is
+**code-paste**, not a localhost callback: the CLI prints a URL, you authorize in
+the browser, the redirect page shows a code, and the screen's input box sends
+that code to the login process's stdin (`POST /api/auth/code`). If the CLI ever
+uses a self-completing localhost callback instead, the flow still works — the
+code box simply goes unused and the app unlocks when sign-in completes. A
+copy-paste `claude auth login` terminal fallback + "check again" button cover the
+case where the spawned sign-in can't proceed.
 
 ## How it works
 

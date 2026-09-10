@@ -250,6 +250,8 @@ const auth = {
   console: el('authConsole'),
   statusLine: el('authStatusLine'),
   url: el('authUrl'),
+  codeForm: el('authCodeForm'),
+  codeInput: el('authCodeInput'),
   log: el('authLog'),
   recheck: el('authRecheck'),
   error: el('authError'),
@@ -283,13 +285,18 @@ function startLogin(provider) {
   auth.errorEl.hidden = true;
   auth.log.hidden = true;
   auth.log.textContent = '';
+  auth.codeForm.hidden = true;
 
   auth.source?.close();
   auth.source = new EventSource(`/api/auth/login?provider=${encodeURIComponent(provider)}`);
   auth.source.addEventListener('url', (e) => {
     const u = JSON.parse(e.data);
     auth.url.href = u; auth.url.hidden = false;
-    auth.statusLine.textContent = 'Sign in with the page that just opened, then return here.';
+    auth.statusLine.textContent = 'Sign in on the page that just opened, then paste the code it gives you below.';
+  });
+  auth.source.addEventListener('needcode', () => {
+    auth.codeForm.hidden = false;
+    auth.codeInput.focus();
   });
   auth.source.addEventListener('log', (e) => {
     auth.log.hidden = false;
@@ -313,6 +320,25 @@ function startLogin(provider) {
 
 auth.connect.addEventListener('click', () => startLogin('claudeai'));
 auth.console.addEventListener('click', () => startLogin('console'));
+
+auth.codeForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = auth.codeInput.value.trim();
+  if (!code) return;
+  auth.statusLine.textContent = 'Submitting code…';
+  try {
+    const r = await fetch('/api/auth/code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    }).then((x) => x.json());
+    if (!r.ok) { auth.errorEl.textContent = r.error || 'Could not submit the code.'; auth.errorEl.hidden = false; return; }
+    auth.codeInput.value = '';
+    auth.statusLine.textContent = 'Finishing sign-in…'; // 'done'/poll will unlock on success
+  } catch {
+    auth.errorEl.textContent = 'Could not reach the server.'; auth.errorEl.hidden = false;
+  }
+});
 auth.recheck.addEventListener('click', async () => {
   if (await checkAuth()) onSignedIn();
   else { auth.errorEl.textContent = 'Still not signed in.'; auth.errorEl.hidden = false; }
