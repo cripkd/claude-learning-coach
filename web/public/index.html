@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Learning Coach</title>
+  <link rel="stylesheet" href="/public/style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">Learning&nbsp;Coach</div>
+    <label class="course-picker">
+      Course
+      <select id="course"></select>
+    </label>
+    <a id="openDash" href="#" target="_blank" rel="noopener">Open dashboard ↗</a>
+  </header>
+
+  <div id="authOverlay" class="auth-overlay" hidden>
+    <div class="auth-card">
+      <h1>Connect your Claude account</h1>
+      <p class="auth-sub">The coach runs on your Claude subscription — no API key. Sign in once; it’s remembered after that.</p>
+
+      <div id="authIntro">
+        <button id="authConnect" class="auth-btn">Sign in with Claude</button>
+        <button id="authConsole" class="auth-link">Use Anthropic API billing instead</button>
+        <p class="auth-note">Requires an active Claude subscription (Pro or Max).</p>
+      </div>
+
+      <div id="authProgress" hidden>
+        <p class="auth-status" id="authStatusLine">Opening the sign-in page in your browser…</p>
+        <a id="authUrl" class="auth-url" href="#" target="_blank" rel="noopener" hidden>Open the sign-in page ↗</a>
+        <pre id="authLog" class="auth-log" hidden></pre>
+        <details class="auth-fallback">
+          <summary>Sign-in page didn’t open?</summary>
+          <p>Run this once in a terminal, then come back:</p>
+          <pre><code>claude auth login</code></pre>
+          <button id="authRecheck" class="auth-link">I’ve signed in — check again</button>
+        </details>
+      </div>
+
+      <p id="authError" class="auth-error" hidden></p>
+    </div>
+  </div>
+
+  <main>
+    <section class="chat" aria-label="Coach chat">
+      <div id="log" class="log">
+        <div class="msg coach">
+          <div class="bubble">Pick a course above, then say <em>“let’s go”</em> to start.</div>
+        </div>
+      </div>
+      <div id="status" class="status" hidden></div>
+      <form id="composer">
+        <textarea id="input" rows="2" placeholder="Ask the coach anything…  (Enter to send, Shift+Enter for newline)"></textarea>
+        <button id="send" type="submit">Send</button>
+      </form>
+    </section>
+
+    <div id="splitter" class="splitter" role="separator" aria-orientation="vertical"
+         aria-label="Resize panels" tabindex="0"></div>
+
+    <section class="dash" aria-label="Dashboard">
+      <iframe id="dashFrame" title="Course dashboard"></iframe>
+      <div id="dashEmpty" class="dash-empty">No dashboard yet — it appears after your first study day.</div>
+    </section>
+  </main>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>

@@ -140,7 +140,7 @@ ol { list-style: decimal inside; }
 
 .readiness-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 16px;
   margin-bottom: 12px;
 }
@@ -314,7 +314,7 @@ ol { list-style: decimal inside; }
 
 .domain-bar-row {
   display: grid;
-  grid-template-columns: 200px 1fr 80px;
+  grid-template-columns: minmax(88px, 200px) 1fr minmax(56px, auto);
   align-items: center;
   gap: 12px;
 }
@@ -558,7 +558,7 @@ ol { list-style: decimal inside; }
 
 .source-strip {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
 }
 

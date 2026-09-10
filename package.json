@@ -13,9 +13,11 @@
     "validate-example": "node scripts/build-dashboard.mjs example-saa-c03 --validate",
     "build-example": "node scripts/build-dashboard.mjs example-saa-c03",
     "setup:retrieval": "npm install --no-save @huggingface/transformers && node scripts/build-embeddings.mjs --warmup",
-    "embeddings:build": "node scripts/build-embeddings.mjs"
+    "embeddings:build": "node scripts/build-embeddings.mjs",
+    "web": "node web/server.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.267",
     "ajv": "^8.17.1"
   }
 }
