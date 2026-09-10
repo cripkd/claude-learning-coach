@@ -64,6 +64,22 @@ Still required before any non-local / multi-user deployment:
 - Turn the Bash denylist into an allowlist of the coach's known commands.
 - Add authentication — the app still assumes a single trusted local user.
 
+## Roadmap / TODO
+
+- **Persist the session map across restarts.** `server.mjs` keeps `sessions` (slug →
+  Claude session id) in memory only. Restarting the server loses the mapping, so the next
+  message starts a fresh Claude session — the coach re-greets and re-reads `memory.md` /
+  `progress.md` (no data loss; the course's own files are the durable memory, but the
+  in-conversation thread resets). Fix: persist the map to a small JSON file, or recover it
+  via the SDK's `listSessions()` matched by `cwd`.
+- **Per-course concurrency guard.** Two turns fired at the same course simultaneously would
+  both `--resume` the same session id and race on the transcript. A single user typing one
+  message at a time never hits this; add a per-slug lock before multiplexing.
+- **Migrate the onboarding session to the created slug.** After `/init-coach` creates a
+  course, the chat thread still lives under the `__new__` pseudo-session. Reloading and
+  picking the course starts a fresh session keyed by the real slug. Optional: hand the
+  onboarding session id over to the new slug so the exact thread continues.
+
 ## Upgrade path
 
 This is Option A (local web app). Option B wraps the same `server.mjs` in Electron/Tauri

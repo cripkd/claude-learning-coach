@@ -19,6 +19,7 @@ Built primarily for certification exams (AWS, Azure, GCP, and similar), but usab
 - [What you bring / What it does](#what-you-bring--what-it-does)
 - [Day-to-day use](#day-to-day-use)
 - [Dashboard](#dashboard)
+- [Web UI (optional — no terminal)](#web-ui-optional--no-terminal)
 - [How the coach works](#how-the-coach-works)
 - [Setup interview](#setup-interview-init-coach)
 - [Repo layout](#repo-layout)
@@ -115,6 +116,25 @@ Shows:
 - Source priority strip
 
 See [`docs/DASHBOARD.md`](docs/DASHBOARD.md) for internals and pass-probability framing, or [How to read the dashboard](#how-to-read-the-dashboard) below for a plain-English glossary of every metric.
+
+---
+
+## Web UI (optional — no terminal)
+
+Prefer a browser to the terminal? There's an **optional** local web front-end: a chat pane beside a live dashboard, with a draggable divider. It's aimed at less technical students — they never open a terminal after setup.
+
+```bash
+npm install      # once
+npm run web      # → http://localhost:4173
+```
+
+It wraps the **same** coach — same `CLAUDE.md` dispatcher, tools, hooks, and auto-built dashboard. Only the chat transport changes (terminal → browser). Highlights:
+
+- **No API key.** It drives the installed `claude` CLI, which uses your existing Claude subscription login. (First run may need a one-time `claude` login.)
+- **In-browser onboarding.** A "＋ Start a new course" flow runs `/init-coach` in chat, so even setup needs no terminal.
+- **Live dashboard.** The same hook that rebuilds `dashboard/index.html` on every state write triggers an auto-reload of the embedded view.
+
+Fully additive — it changes nothing about terminal usage. Bound to `127.0.0.1` and tool-scoped for local single-user use; see [`web/README.md`](web/README.md) for architecture, security model, and roadmap.
 
 ---
 
