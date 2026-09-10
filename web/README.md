@@ -35,10 +35,12 @@ After that the web UI reuses that session — no API key, no re-login.
   Claude subscription login. Nothing new for the student.
 - **One session per course** — `server.mjs` keeps a resumable SDK `session_id` per slug,
   so the coach retains context across turns just like a terminal session.
-- **Permissions** — runs `permissionMode: 'bypassPermissions'` so the student is never
-  interrupted by approval prompts. This is a **local, single-user** tool; the agent's
-  `cwd` is the repo root and the coach only writes within `courses/{slug}/`. Do not
-  expose this server to a network you don't trust. See "Hardening" below.
+- **Permissions** — a `canUseTool` guard (`makePermissionGuard`) gates every tool so the
+  student is never interrupted by approval prompts *and* the agent can't roam: writes are
+  scoped to `courses/{slug}/` (any course dir during `__new__` onboarding), reads are
+  confined to the repo, and Bash is filtered against a small dangerous-pattern denylist.
+  This is a **conservative stub, not a finished policy** — the Bash filter is a denylist;
+  convert it to an allowlist and revisit per your threat model before trusting it further.
 - **Live dashboard** — the existing `state-write` hook rebuilds `dashboard/index.html`
   on every `state.json` write. The server watches that file and pushes an SSE `reload`
   event; the iframe cache-busts and re-renders. Zero changes to the dashboard pipeline.
@@ -49,12 +51,18 @@ After that the web UI reuses that session — no API key, no re-login.
 `dashboard/*`, `state.json` schema. The web layer adds nothing to the coaching logic — it's
 pure transport + presentation.
 
-## Hardening (before any non-local deployment)
+## Hardening
 
-- Bind to `127.0.0.1` only (default is all interfaces via `createServer`).
-- Replace `bypassPermissions` with a `canUseTool` callback that allowlists Read/Write/Edit/Bash
-  scoped to the selected course dir.
-- Add auth (the app assumes a single trusted local user today).
+Done:
+
+- **Binds `127.0.0.1` only** — not reachable off the machine.
+- **`canUseTool` guard** — writes scoped to the course dir, reads scoped to the repo,
+  Bash denylist. Replaces the earlier blanket `bypassPermissions`.
+
+Still required before any non-local / multi-user deployment:
+
+- Turn the Bash denylist into an allowlist of the coach's known commands.
+- Add authentication — the app still assumes a single trusted local user.
 
 ## Upgrade path
 

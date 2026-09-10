@@ -48,6 +48,54 @@ const MIME = {
 
 const SLUG_RE = /^[a-zA-Z0-9_-]+$/;
 
+// ─── Tool permission guard (stub) ─────────────────────────────────────────────
+// Replaces blanket bypassPermissions. Scopes file writes to the active course and
+// keeps reads/shell inside the repo. This is a conservative default, not a finished
+// policy — tighten Bash to an allowlist and revisit per your threat model before any
+// non-local deployment. Onboarding ('__new__') is broadened to allow creating a new
+// course dir whose slug isn't known yet.
+const DENY = (message) => ({ behavior: 'deny', message });
+const ALLOW = (input) => ({ behavior: 'allow', updatedInput: input });
+
+// Obvious footguns. Denylist, not allowlist — hence "stub".
+const DANGEROUS_BASH = /(^|\s)(sudo|rm\s+-rf\s+\/|:\(\)\s*\{|curl[^|]*\|\s*(sh|bash)|wget[^|]*\|\s*(sh|bash))/;
+
+function makePermissionGuard(slug) {
+  const onboarding = slug === '__new__';
+  const courseDir = onboarding ? COURSES_DIR : join(COURSES_DIR, slug);
+
+  return async (toolName, input = {}) => {
+    const within = (root, p) => {
+      const abs = resolve(REPO_ROOT, String(p ?? ''));
+      return abs.startsWith(root + '/') || abs === root ? abs : null;
+    };
+
+    switch (toolName) {
+      case 'Write':
+      case 'Edit':
+      case 'MultiEdit':
+      case 'NotebookEdit': {
+        const abs = within(courseDir, input.file_path);
+        return abs ? ALLOW(input)
+          : DENY(`write blocked: ${input.file_path} is outside the course directory`);
+      }
+      case 'Read': {
+        // Reads span the repo (templates/, starter-files/, root files) but not the host FS.
+        const abs = within(REPO_ROOT, input.file_path);
+        return abs ? ALLOW(input) : DENY(`read blocked: ${input.file_path} is outside the repo`);
+      }
+      case 'Bash': {
+        const cmd = String(input.command ?? '');
+        if (DANGEROUS_BASH.test(cmd)) return DENY('shell command blocked by safety policy');
+        return ALLOW(input);
+      }
+      default:
+        // Glob/Grep/Web*/Task/Todo/etc. — read-only or side-effect-free; allow.
+        return ALLOW(input);
+    }
+  };
+}
+
 // Short human label for a tool call, shown as transient chat status.
 function toolTarget(name, input = {}) {
   const base = (p) => (typeof p === 'string' ? p.split('/').pop() : '');
@@ -135,7 +183,7 @@ async function handleChat(req, res) {
       options: {
         cwd: REPO_ROOT,
         resume,
-        permissionMode: 'bypassPermissions', // local single-user app; coach writes only within the repo
+        canUseTool: makePermissionGuard(slug), // scopes writes to the course; gates shell
         includePartialMessages: true,
         settingSources: ['project'],          // load .claude/settings.json → hooks fire (dashboard rebuild)
       },
@@ -216,7 +264,8 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+// Bind to loopback only: this app assumes a single trusted local user (see web/README.md).
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n  Learning Coach web UI → http://localhost:${PORT}\n`);
   console.log('  (Uses your existing Claude login via the claude CLI — no API key needed.)\n');
 });
