@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Learning Coach</title>
+  <link rel="stylesheet" href="/public/style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">Learning&nbsp;Coach</div>
+    <label class="course-picker">
+      Course
+      <select id="course"></select>
+    </label>
+    <a id="openDash" href="#" target="_blank" rel="noopener">Open dashboard ↗</a>
+  </header>
+
+  <main>
+    <section class="chat" aria-label="Coach chat">
+      <div id="log" class="log">
+        <div class="msg coach">
+          <div class="bubble">Pick a course above, then say <em>“let’s go”</em> to start.</div>
+        </div>
+      </div>
+      <div id="status" class="status" hidden></div>
+      <form id="composer">
+        <textarea id="input" rows="2" placeholder="Ask the coach anything…  (Enter to send, Shift+Enter for newline)"></textarea>
+        <button id="send" type="submit">Send</button>
+      </form>
+    </section>
+
+    <section class="dash" aria-label="Dashboard">
+      <iframe id="dashFrame" title="Course dashboard"></iframe>
+      <div id="dashEmpty" class="dash-empty">No dashboard yet — it appears after your first study day.</div>
+    </section>
+  </main>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>
