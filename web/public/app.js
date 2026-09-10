@@ -292,11 +292,10 @@ function startLogin(provider) {
   auth.source.addEventListener('url', (e) => {
     const u = JSON.parse(e.data);
     auth.url.href = u; auth.url.hidden = false;
-    auth.statusLine.textContent = 'Sign in on the page that just opened, then paste the code it gives you below.';
+    auth.statusLine.textContent = 'Authorize in the browser tab that opened — this screen unlocks automatically.';
   });
   auth.source.addEventListener('needcode', () => {
-    auth.codeForm.hidden = false;
-    auth.codeInput.focus();
+    auth.codeForm.hidden = false; // optional fallback if auto-unlock doesn't fire
   });
   auth.source.addEventListener('log', (e) => {
     auth.log.hidden = false;

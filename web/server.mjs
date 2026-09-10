@@ -26,7 +26,6 @@ import { existsSync, watch as watchSync } from 'node:fs';
 import { dirname, resolve, join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { platform } from 'node:process';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -187,14 +186,8 @@ function authStatus() {
   });
 }
 
-function openInBrowser(target) {
-  const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'cmd' : 'xdg-open';
-  const args = platform === 'win32' ? ['/c', 'start', '', target] : [target];
-  try { spawn(cmd, args, { stdio: 'ignore', detached: true }).unref(); } catch { /* best effort */ }
-}
-
 // SSE: spawn `claude auth login`, stream its output (URL + prompts) to the UI,
-// auto-open the URL, then report the final status.
+// then report the final status. The CLI opens the browser itself.
 function handleAuthLogin(res, provider) {
   sseInit(res);
   const providerFlag = provider === 'console' ? '--console' : '--claudeai';
@@ -221,9 +214,12 @@ function handleAuthLogin(res, provider) {
     const m = text.match(URL_RE);
     if (m && !opened) {
       opened = true;
+      // The claude CLI opens the browser itself ("Opening browser to sign in…").
+      // We only surface the URL as a clickable fallback — opening it again here
+      // would spawn a duplicate tab.
       sseSend(res, 'url', m[1]);
-      openInBrowser(m[1]);
-      // Signal the UI to reveal the code-paste box — this flow needs it.
+      // Reveal the code-paste box as a fallback; the flow usually self-completes
+      // via the CLI's callback (caught by the status poll) without needing it.
       sseSend(res, 'needcode', true);
     }
   };
