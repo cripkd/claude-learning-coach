@@ -28,9 +28,10 @@
 import { promises as fs } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DATA_ROOT } from './_roots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
-const REPO_ROOT  = resolve(dirname(__filename), '..');
+const REPO_ROOT  = DATA_ROOT;   // courses/ live here; writable even when the app bundle isn't
 const COVERAGE_THRESHOLD = 0.9;
 const DEFAULT_READ_LIMIT = 2000;
 

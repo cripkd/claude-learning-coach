@@ -26,15 +26,11 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve, dirname, join, basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { TEMPLATES_DIR, DATA_ROOT } from './_roots.mjs';
 import Ajv from 'ajv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
-const REPO_ROOT  = resolve(__dirname, '..');
-
-const SCHEMA_PATH   = join(REPO_ROOT, 'templates', 'state-schema.json');
-const TEMPLATE_PATH = join(REPO_ROOT, 'templates', 'dashboard-template.html');
+const SCHEMA_PATH   = join(TEMPLATES_DIR, 'state-schema.json');
+const TEMPLATE_PATH = join(TEMPLATES_DIR, 'dashboard-template.html');
 const PLACEHOLDER   = '__STATE_PLACEHOLDER__';
 const CURRENT_VERSION = '2.3';
 
@@ -414,7 +410,7 @@ function resolveCoursePaths({ slug, statePath }) {
     };
   }
   if (!slug) throw new Error('No slug or --state path provided.');
-  const courseDir = join(REPO_ROOT, 'courses', slug);
+  const courseDir = join(DATA_ROOT, 'courses', slug);
   return {
     statePath:    join(courseDir, 'data', 'state.json'),
     dashboardDir: join(courseDir, 'dashboard'),

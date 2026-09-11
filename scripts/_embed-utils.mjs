@@ -7,15 +7,13 @@
  * Prefixed with _ so the source-file walker in build-embeddings.mjs skips this file.
  */
 
-import { resolve, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { CACHE_ROOT } from './_roots.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
-
-export const REPO_ROOT     = resolve(__dirname, '..');
 export const DEFAULT_MODEL = 'Xenova/all-MiniLM-L6-v2';
-export const CACHE_DIR     = join(REPO_ROOT, '.cache', 'transformers');
+// Derived data: safe to delete, regenerates on next run. Lives outside DATA_ROOT
+// in a packaged build so clearing it never touches the student's courses.
+export const CACHE_DIR     = join(CACHE_ROOT, 'transformers');
 
 export async function tryImportTransformers() {
   try { return await import('@huggingface/transformers'); }

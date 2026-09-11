@@ -1,8 +1,13 @@
 # Desktop Packaging (Electron)
 
-Status: **in progress** on branch `packaging-electron`. The Electron wrapper is scaffolded
-(`desktop/main.cjs`, wired as `package.json` `main`) but not yet finished/tested — it wraps the
-existing web UI (`web/server.mjs`).
+Status: **dev-tested** on branch `packaging-electron`. The Electron wrapper
+(`desktop/main.cjs`, wired as `package.json` `main`) wraps the existing web UI
+(`web/server.mjs`) and runs. Installers are not built or signed yet — see the
+TODO in `desktop/README.md`.
+
+The app bundles Claude Code itself (the Agent SDK ships it as a per-platform
+native binary), so a student needs **nothing installed** — only a Claude account
+to sign into.
 
 ## Build & run
 
@@ -26,7 +31,9 @@ Verify Electron installed:
 
 ## Corporate machine (Zscaler / TLS-intercept) workaround
 
-`npm install` fails behind Zscaler in two stages:
+Not needed on an unrestricted network — `npm install` completed clean there, and
+the notes below went unused. Kept for the corporate machine, where `npm install`
+has failed in two stages:
 
 1. **TLS cert reject** — export the Zscaler root CA and point Node at it:
    ```bash
@@ -50,10 +57,25 @@ Verify Electron installed:
 
 ## Web-only fallback
 
-If desktop packaging stays blocked, the app runs as a plain web server — Electron only wraps it:
+The app runs as a plain web server — Electron only wraps it:
 
 ```bash
 npm run web    # node web/server.mjs
 ```
 
-The in-browser Claude-account auth screen lives on this branch (connect + code-paste OAuth).
+This path also uses the bundled claude binary, so it needs no system install
+either. The in-browser Claude-account auth screen lives on this branch (connect
++ code-paste OAuth).
+
+## Storage layout
+
+Three roots, resolved in `scripts/_roots.mjs`. A repo checkout collapses all
+three onto the checkout, so running from source is unchanged; a packaged build
+puts the student's work in `userData` so it survives app updates. Details and
+rationale in `desktop/README.md`.
+
+Override either root to relocate data without a rebuild:
+
+```bash
+COACH_DATA_ROOT=/path/to/workspace COACH_CACHE_ROOT=/path/to/cache npm run desktop
+```

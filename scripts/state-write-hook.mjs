@@ -17,10 +17,11 @@ import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import { dirname, resolve, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DATA_ROOT } from './_roots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
-const REPO_ROOT  = resolve(__dirname, '..');
+const REPO_ROOT  = DATA_ROOT;   // courses/ live here; writable even when the app bundle isn't
 const BUILDER    = join(__dirname, 'build-dashboard.mjs');
 
 // ─── Read JSON payload from stdin ────────────────────────────────────────────

@@ -22,10 +22,11 @@ import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DATA_ROOT } from './_roots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
-const REPO_ROOT  = resolve(__dirname, '..');
+const REPO_ROOT  = DATA_ROOT;   // courses/ live here; writable even when the app bundle isn't
 const CHECKER    = join(__dirname, 'check-day-readiness.mjs');
 
 // Marker must appear at the very start of the message (optionally after blank lines).

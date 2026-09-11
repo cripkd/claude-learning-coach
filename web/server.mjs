@@ -26,11 +26,12 @@ import { existsSync, watch as watchSync } from 'node:fs';
 import { dirname, resolve, join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { BUNDLE_ROOT, DATA_ROOT, COURSES_DIR } from '../scripts/_roots.mjs';
 
+const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..');
-const COURSES_DIR = join(REPO_ROOT, 'courses');
 const PUBLIC_DIR = join(__dirname, 'public');
 const PORT = Number(process.env.PORT) || 4173;
 
@@ -66,9 +67,12 @@ function makePermissionGuard(slug) {
   const courseDir = onboarding ? COURSES_DIR : join(COURSES_DIR, slug);
 
   return async (toolName, input = {}) => {
-    const within = (root, p) => {
-      const abs = resolve(REPO_ROOT, String(p ?? ''));
-      return abs.startsWith(root + '/') || abs === root ? abs : null;
+    // Relative paths are resolved against DATA_ROOT because that is the agent's
+    // cwd. In a repo checkout DATA_ROOT === BUNDLE_ROOT and this behaves exactly
+    // as it did before the split.
+    const within = (roots, p) => {
+      const abs = resolve(DATA_ROOT, String(p ?? ''));
+      return roots.some((r) => abs === r || abs.startsWith(r + '/')) ? abs : null;
     };
 
     switch (toolName) {
@@ -76,14 +80,15 @@ function makePermissionGuard(slug) {
       case 'Edit':
       case 'MultiEdit':
       case 'NotebookEdit': {
-        const abs = within(courseDir, input.file_path);
+        const abs = within([courseDir], input.file_path);
         return abs ? ALLOW(input)
           : DENY(`write blocked: ${input.file_path} is outside the course directory`);
       }
       case 'Read': {
-        // Reads span the repo (templates/, starter-files/, root files) but not the host FS.
-        const abs = within(REPO_ROOT, input.file_path);
-        return abs ? ALLOW(input) : DENY(`read blocked: ${input.file_path} is outside the repo`);
+        // Reads span the student's data and the bundled assets (templates/,
+        // starter-files/, root files) but not the rest of the host FS.
+        const abs = within([DATA_ROOT, BUNDLE_ROOT], input.file_path);
+        return abs ? ALLOW(input) : DENY(`read blocked: ${input.file_path} is outside the workspace`);
       }
       case 'Bash': {
         const cmd = String(input.command ?? '');
@@ -164,7 +169,27 @@ async function serveFile(res, rootDir, relPath) {
 // the student ever opening a terminal. A copy-paste command is the fallback if the
 // spawned flow needs a TTY.
 
-const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
+// The Agent SDK ships Claude Code as a per-platform native binary (an optional
+// npm dependency), so the app carries its own copy and nothing has to be
+// installed on the student's machine. Use that same binary for the auth
+// subcommands too — otherwise sign-in silently depends on a separate system
+// install, which is exactly what the desktop wrapper exists to avoid.
+function resolveBundledClaude() {
+  const exe = process.platform === 'win32' ? 'claude.exe' : 'claude';
+  const specs = [`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/${exe}`];
+  if (process.platform === 'linux') specs.push(`@anthropic-ai/claude-agent-sdk-linux-${process.arch}-musl/${exe}`);
+  for (const spec of specs) {
+    try {
+      const p = require.resolve(spec);
+      if (existsSync(p)) return p;
+    } catch { /* not installed for this platform */ }
+  }
+  return null;
+}
+
+// Absolute path when we have one; null means "fall back to PATH".
+const CLAUDE_PATH = process.env.CLAUDE_BIN || resolveBundledClaude();
+const CLAUDE_BIN = CLAUDE_PATH || 'claude';
 const URL_RE = /(https?:\/\/[^\s"']+)/;
 
 // The active `claude auth login` child, if a sign-in is in flight. This OAuth flow
@@ -280,11 +305,17 @@ async function handleChat(req, res) {
     const stream = query({
       prompt,
       options: {
-        cwd: REPO_ROOT,
+        cwd: DATA_ROOT,                       // roots CLAUDE.md discovery + $CLAUDE_PROJECT_DIR
         resume,
         canUseTool: makePermissionGuard(slug), // scopes writes to the course; gates shell
         includePartialMessages: true,
-        settingSources: ['project'],          // load .claude/settings.json → hooks fire (dashboard rebuild)
+        // 'project' loads .claude/settings.json (→ hooks fire, dashboard rebuilds)
+        // *and* CLAUDE.md. Omitting 'user' is deliberate: the student's own
+        // ~/.claude/settings.json must not leak into the coach session.
+        settingSources: ['project'],
+        // Read bundled templates/ and starter-files/ from outside cwd.
+        additionalDirectories: BUNDLE_ROOT === DATA_ROOT ? undefined : [BUNDLE_ROOT],
+        ...(CLAUDE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_PATH } : {}),
       },
     });
 
@@ -368,6 +399,8 @@ const server = createServer(async (req, res) => {
 
 // Bind to loopback only: this app assumes a single trusted local user (see web/README.md).
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`\n  Learning Coach web UI → http://localhost:${PORT}\n`);
-  console.log('  (Uses your existing Claude login via the claude CLI — no API key needed.)\n');
+  console.log(`\n  Learning Coach web UI → http://localhost:${PORT}`);
+  console.log(`  data: ${DATA_ROOT}`);
+  console.log(`  claude: ${CLAUDE_PATH ? `bundled (${CLAUDE_PATH})` : 'from PATH — no bundled binary for this platform'}`);
+  console.log('  (Signs in with your Claude account — no API key needed.)\n');
 });

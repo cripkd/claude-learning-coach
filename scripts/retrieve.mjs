@@ -23,7 +23,8 @@
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { REPO_ROOT, DEFAULT_MODEL, tryImportTransformers, initPipeline, embedText } from './_embed-utils.mjs';
+import { DEFAULT_MODEL, tryImportTransformers, initPipeline, embedText } from './_embed-utils.mjs';
+import { DATA_ROOT } from './_roots.mjs';
 
 const DEFAULT_TOP_K      = 8;
 const DEFAULT_BYTE_BUDGET = 24000;
@@ -142,7 +143,7 @@ async function main() {
     process.exit(0);
   }
 
-  const courseDir = join(REPO_ROOT, 'courses', args.slug);
+  const courseDir = join(DATA_ROOT, 'courses', args.slug);
   if (!existsSync(courseDir)) {
     console.error(`retrieve: course not found: courses/${args.slug}`);
     process.exit(2);

@@ -21,7 +21,8 @@ import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
 import { createHash } from 'node:crypto';
-import { REPO_ROOT, DEFAULT_MODEL, CACHE_DIR, tryImportTransformers, initPipeline, embedText } from './_embed-utils.mjs';
+import { DEFAULT_MODEL, CACHE_DIR, tryImportTransformers, initPipeline, embedText } from './_embed-utils.mjs';
+import { DATA_ROOT } from './_roots.mjs';
 
 const CHUNK_MAX_CHARS = 1500;
 
@@ -296,7 +297,7 @@ async function main() {
     process.exit(1);
   }
 
-  const courseDir  = join(REPO_ROOT, 'courses', args.slug);
+  const courseDir  = join(DATA_ROOT, 'courses', args.slug);
   const sourcesDir = join(courseDir, 'sources');
   const bankDir    = join(courseDir, 'bank');
   const dataDir    = join(courseDir, 'data');

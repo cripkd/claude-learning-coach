@@ -22,10 +22,11 @@ import { spawn }      from 'node:child_process';
 import { readFile }   from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DATA_ROOT } from './_roots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
-const REPO_ROOT  = resolve(__dirname, '..');
+const REPO_ROOT  = DATA_ROOT;   // courses/ live here; writable even when the app bundle isn't
 const EMBEDDER   = join(__dirname, 'build-embeddings.mjs');
 
 // ─── Stdin ────────────────────────────────────────────────────────────────────
