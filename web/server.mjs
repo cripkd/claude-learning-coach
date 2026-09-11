@@ -324,8 +324,6 @@ async function handleChat(req, res) {
         // *and* CLAUDE.md. Omitting 'user' is deliberate: the student's own
         // ~/.claude/settings.json must not leak into the coach session.
         settingSources: ['project'],
-        // Read bundled templates/ and starter-files/ from outside cwd.
-        additionalDirectories: BUNDLE_ROOT === DATA_ROOT ? undefined : [BUNDLE_ROOT],
         ...(CLAUDE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_PATH } : {}),
       },
     });

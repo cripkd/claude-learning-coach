@@ -66,9 +66,21 @@ function applySelection() {
   selectCourse(opt.value, opt.dataset.hasDashboard === '1');
 }
 
+// The opening hint is the only instruction a first-time student sees, so keep it
+// in step with what's actually selected. On a fresh install there are no courses
+// to pick, and telling them to pick one is a dead end.
+function setHint(slug) {
+  const b = document.getElementById('hintBubble');
+  if (!b) return;
+  b.innerHTML = slug === NEW
+    ? 'No courses yet — say <em>“/init-coach”</em> below and I’ll set one up with you.'
+    : 'Say <em>“let’s go”</em> to start today’s session.';
+}
+
 function selectCourse(slug, hasDashboard) {
   currentSlug = slug;
   watchSource?.close();
+  setHint(slug);
 
   if (slug === NEW) {
     openDash.removeAttribute('href');

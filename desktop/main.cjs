@@ -13,7 +13,7 @@
 const { app, BrowserWindow, shell } = require('electron');
 const { fork } = require('node:child_process');
 const { createRequire } = require('node:module');
-const { existsSync, mkdirSync, copyFileSync, writeFileSync } = require('node:fs');
+const { existsSync, mkdirSync, copyFileSync, writeFileSync, cpSync, chmodSync } = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const net = require('node:net');
@@ -52,28 +52,55 @@ function resolveRoots() {
 // version stamp to maintain and no stale copy to debug. Nothing the student
 // creates lives at these paths — their work is under courses/, which this never
 // touches.
+// Directories the coach's own instructions reference by *relative* path
+// (templates/state-schema.json, starter-files/progress.md, dashboard/dashboard.css,
+// scripts/build-dashboard.mjs). Those resolve against the agent's cwd, so the
+// workspace has to look like the repo — read access to the bundle is not enough.
+// All four are bundle-derived and carry no student data, so they are mirrored
+// wholesale on every launch.
+const MIRRORED_DIRS = ['templates', 'starter-files', 'dashboard', 'scripts', '.claude/commands'];
+const MIRRORED_FILES = ['CLAUDE.md', 'CLAUDE.md.template'];
+
 function seedWorkspace({ bundleRoot, dataRoot }) {
   if (dataRoot === bundleRoot) return; // dev: the checkout is already the workspace
 
   mkdirSync(path.join(dataRoot, 'courses'), { recursive: true });
   mkdirSync(path.join(dataRoot, '.claude'), { recursive: true });
 
-  for (const name of ['CLAUDE.md', 'CLAUDE.md.template']) {
+  for (const name of MIRRORED_FILES) {
     const src = path.join(bundleRoot, name);
     if (existsSync(src)) copyFileSync(src, path.join(dataRoot, name));
   }
-
-  // Slash commands (/init-coach, /index-sources) are read from the project dir.
-  const cmdSrc = path.join(bundleRoot, '.claude', 'commands');
-  if (existsSync(cmdSrc)) {
-    const cmdDst = path.join(dataRoot, '.claude', 'commands');
-    mkdirSync(cmdDst, { recursive: true });
-    for (const f of require('node:fs').readdirSync(cmdSrc)) {
-      copyFileSync(path.join(cmdSrc, f), path.join(cmdDst, f));
-    }
+  for (const dir of MIRRORED_DIRS) {
+    const src = path.join(bundleRoot, dir);
+    if (existsSync(src)) cpSync(src, path.join(dataRoot, dir), { recursive: true, force: true });
   }
 
   writeSettings({ bundleRoot, dataRoot });
+  writeNodeShim({ dataRoot });
+}
+
+// The instructions also tell the agent to run `node scripts/build-dashboard.mjs`
+// when a hook hasn't already rebuilt. A packaged student has no Node, so put a
+// `node` on PATH that is Electron running as Node. This covers every `node …`
+// the coach might reach for, not just the one we found.
+function writeNodeShim({ dataRoot }) {
+  const binDir = path.join(dataRoot, '.bin');
+  mkdirSync(binDir, { recursive: true });
+  if (process.platform === 'win32') {
+    writeFileSync(path.join(binDir, 'node.cmd'),
+      `@echo off
+set ELECTRON_RUN_AS_NODE=1
+"${process.execPath}" %*
+`);
+  } else {
+    const shim = path.join(binDir, 'node');
+    writeFileSync(shim, `#!/bin/sh
+ELECTRON_RUN_AS_NODE=1 exec ${JSON.stringify(process.execPath)} "$@"
+`);
+    chmodSync(shim, 0o755);
+  }
+  return binDir;
 }
 
 // The checked-in .claude/settings.json runs hooks as `node $CLAUDE_PROJECT_DIR/...`,
@@ -170,6 +197,9 @@ async function startServer() {
       PORT: String(port),
       COACH_DATA_ROOT: roots.dataRoot,
       COACH_CACHE_ROOT: roots.cacheRoot,
+      ...(roots.dataRoot === roots.bundleRoot
+        ? {}
+        : { PATH: `${path.join(roots.dataRoot, '.bin')}${path.delimiter}${process.env.PATH ?? ''}` }),
       ...(claudeBin ? { CLAUDE_BIN: claudeBin } : {}),
     },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],  // fork() requires an 'ipc' channel

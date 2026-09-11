@@ -57,3 +57,6 @@ courses/*/data/.embeddings-manifest.json
 
 # Electron-builder output (installers + unpacked .app; hundreds of MB).
 dist/
+
+# Playwright MCP scratch output.
+.playwright-mcp/
