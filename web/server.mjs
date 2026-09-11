@@ -27,7 +27,9 @@ import { dirname, resolve, join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { query, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { BUNDLE_ROOT, DATA_ROOT, COURSES_DIR } from '../scripts/_roots.mjs';
 
 const require = createRequire(import.meta.url);
@@ -49,6 +51,72 @@ const MIME = {
 };
 
 const SLUG_RE = /^[a-zA-Z0-9_-]+$/;
+
+// ─── Interactive questions ────────────────────────────────────────────────────
+// The model already emits structured multiple-choice questions via the built-in
+// AskUserQuestion tool — the same picker Claude Code renders in the terminal.
+// Nothing in a browser answers it, so it returns unanswered and the coach falls
+// back to re-asking in prose ("I didn't get an answer to that question").
+//
+// toolAliases redirects that built-in name at the in-process MCP tool below, so
+// the call lands here instead: push the questions down the turn's SSE stream,
+// wait for the student's pick, and hand back a real tool result. To the model
+// this is indistinguishable from the terminal picker.
+
+const pendingQuestions = new Map(); // id -> resolve
+
+// Mirrors AskUserQuestionInput. Kept permissive on bounds (the model is already
+// constrained by the built-in tool's own schema) so a stricter local copy can't
+// reject a call the model considered valid.
+const ASK_SHAPE = {
+  questions: z.array(z.object({
+    question: z.string(),
+    header: z.string(),
+    multiSelect: z.boolean().optional(),
+    options: z.array(z.object({
+      label: z.string(),
+      description: z.string(),
+      preview: z.string().optional(),
+    })),
+  })),
+};
+
+function makeAskServer(sse, liveIds) {
+  return createSdkMcpServer({
+    name: 'ui',
+    version: '1.0.0',
+    tools: [
+      tool(
+        'ask',
+        'Ask the student 1-4 multiple-choice questions and wait for their answer. '
+        + 'Renders as a keyboard-navigable picker in the app. Prefer this over asking in prose.',
+        ASK_SHAPE,
+        async ({ questions }) => {
+          const id = randomUUID();
+          liveIds.add(id);
+          const answers = await new Promise((resolve) => {
+            pendingQuestions.set(id, resolve);
+            sse('question', { id, questions });
+          });
+          pendingQuestions.delete(id);
+          liveIds.delete(id);
+          return { content: [{ type: 'text', text: JSON.stringify({ answers }) }] };
+        },
+      ),
+    ],
+  });
+}
+
+async function handleAnswer(req, res) {
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  let body;
+  try { body = JSON.parse(raw || '{}'); } catch { return send(res, 400, 'Bad JSON'); }
+  const resolve = pendingQuestions.get(body?.id);
+  if (!resolve) return send(res, 409, JSON.stringify({ ok: false, error: 'no question pending' }), { 'Content-Type': MIME['.json'] });
+  resolve(body.answers ?? []);
+  return send(res, 200, JSON.stringify({ ok: true }), { 'Content-Type': MIME['.json'] });
+}
 
 // ─── Tool permission guard (stub) ─────────────────────────────────────────────
 // Replaces blanket bypassPermissions. Scopes file writes to the active course and
@@ -312,11 +380,22 @@ async function handleChat(req, res) {
   const isOnboarding = slug === '__new__';
   const prompt = (resume || isOnboarding) ? message : `I'm working on the course: ${slug}\n\n${message}`;
 
+  // Unanswered questions must not outlive the turn: if the student closes the
+  // tab mid-question the tool would await forever and wedge the session.
+  const liveIds = new Set();
+  const releaseQuestions = () => {
+    for (const id of liveIds) pendingQuestions.get(id)?.([]);
+    liveIds.clear();
+  };
+  res.on('close', releaseQuestions);
+
   try {
     const stream = query({
       prompt,
       options: {
         cwd: DATA_ROOT,                       // roots CLAUDE.md discovery + $CLAUDE_PROJECT_DIR
+        mcpServers: { ui: makeAskServer((ev, data) => sseSend(res, ev, data), liveIds) },
+        toolAliases: { AskUserQuestion: 'mcp__ui__ask' },
         resume,
         canUseTool: makePermissionGuard(slug), // scopes writes to the course; gates shell
         includePartialMessages: true,
@@ -340,7 +419,9 @@ async function handleChat(req, res) {
       } else if (msg.type === 'assistant') {
         // Surface tool activity so the student sees "reading memory.md…" instead of silence.
         for (const block of msg.message?.content || []) {
-          if (block?.type === 'tool_use') {
+          // The picker renders its own UI; a "tool running" status line under it
+          // just flickers.
+          if (block?.type === 'tool_use' && block.name !== 'mcp__ui__ask') {
             sseSend(res, 'tool', { name: block.name, target: toolTarget(block.name, block.input) });
           }
         }
@@ -351,6 +432,7 @@ async function handleChat(req, res) {
   } catch (err) {
     sseSend(res, 'error', String(err?.message || err));
   }
+  releaseQuestions();
   res.end();
 }
 
@@ -388,6 +470,7 @@ const server = createServer(async (req, res) => {
     if (path === '/api/auth/code' && req.method === 'POST') return handleAuthCode(req, res);
     if (path === '/api/courses') return send(res, 200, JSON.stringify(await listCourses()), { 'Content-Type': MIME['.json'] });
     if (path === '/api/chat' && req.method === 'POST') return handleChat(req, res);
+    if (path === '/api/answer' && req.method === 'POST') return handleAnswer(req, res);
     if (path === '/api/watch') return handleWatch(res, url.searchParams.get('slug') || '');
 
     if (path.startsWith('/dashboard/')) {
