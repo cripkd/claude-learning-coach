@@ -1,5 +1,6 @@
 {
   "name": "exam-coach-template",
+  "productName": "Learning Coach",
   "version": "2.0.0",
   "description": "Claude Code-powered study coach for scenario-based multiple-choice certification exams. Build tooling for the dashboard artifact.",
   "private": true,
@@ -43,8 +44,16 @@
       "CLAUDE.md.template",
       "node_modules/**"
     ],
-    "mac": { "target": "dmg", "category": "public.app-category.education" },
-    "win": { "target": "nsis" },
-    "linux": { "target": "AppImage", "category": "Education" }
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.education"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Education"
+    }
   }
 }

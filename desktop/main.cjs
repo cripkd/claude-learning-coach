@@ -12,6 +12,7 @@
 
 const { app, BrowserWindow, shell } = require('electron');
 const { fork } = require('node:child_process');
+const { createRequire } = require('node:module');
 const { existsSync, mkdirSync, copyFileSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
@@ -107,11 +108,21 @@ function resolveClaudeBin() {
   const exe = process.platform === 'win32' ? 'claude.exe' : 'claude';
   const specs = [`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/${exe}`];
   if (process.platform === 'linux') specs.push(`@anthropic-ai/claude-agent-sdk-linux-${process.arch}-musl/${exe}`);
-  for (const spec of specs) {
-    try {
-      const p = require.resolve(spec);
-      if (existsSync(p)) return p;
-    } catch { /* not installed for this platform */ }
+  // Resolve from the SDK's own location first, then from here. electron-builder
+  // nests the platform package inside the SDK's node_modules rather than
+  // hoisting it, so a resolver anchored only at this file finds nothing in a
+  // packaged build.
+  const anchors = [];
+  try { anchors.push(createRequire(require.resolve('@anthropic-ai/claude-agent-sdk'))); } catch { /* ignore */ }
+  anchors.push(require);
+
+  for (const req of anchors) {
+    for (const spec of specs) {
+      try {
+        const p = req.resolve(spec);
+        if (existsSync(p)) return p;
+      } catch { /* not installed for this platform */ }
+    }
   }
   console.error(`No bundled claude binary for ${process.platform}-${process.arch}; falling back to PATH.`);
   return null;
