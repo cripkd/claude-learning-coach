@@ -1,0 +1,86 @@
+name: Release desktop app
+
+# Fires when you push a semver tag (scripts/release.sh does that for you).
+# Builds a DMG per macOS architecture on its own runner, then publishes a
+# single GitHub Release with both DMGs attached.
+#
+# Why two runners instead of `--x64 --arm64` on one: the Agent SDK ships Claude
+# Code as a per-platform native binary and npm installs only the one matching
+# the build host. Building x64 on an arm64 Mac would bundle the arm64 claude
+# binary into the Intel app (see desktop/README.md § The claude binary). Each
+# runner's `npm ci` pulls the correct native binary for that arch.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # the release job needs this to create the Release
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }} DMG
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14   # Apple Silicon
+            arch: arm64
+          - runner: macos-13   # Intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build DMG (${{ matrix.arch }})
+        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+        env:
+          # Unsigned/un-notarized build: don't let electron-builder hunt for a
+          # signing identity (it would fail or hang the runner). Remove this once
+          # signing + notarization secrets are wired up.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.arch }}
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List built assets
+        run: find artifacts -type f -name '*.dmg' -print
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.dmg
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          body: |
+            The coach and the optional web app are stable. The desktop build below is **experimental, unsigned, and not notarized**.
+
+            **Downloads**
+            - `learning-coach-*-arm64.dmg` — Apple Silicon (M1/M2/M3/M4)
+            - `learning-coach-*-x64.dmg` — Intel Mac
+
+            First launch is blocked by Gatekeeper. Right-click the app in Applications and choose **Open** twice, or run:
+            ```
+            xattr -cr "/Applications/Learning Coach.app"
+            ```
