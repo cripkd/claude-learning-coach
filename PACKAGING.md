@@ -55,6 +55,38 @@ has failed in two stages:
 **Simplest path:** run `npm install` on an unrestricted network (personal laptop), then
 `git pull` this branch there. The binary download just works off the corporate network.
 
+## Releasing (tag → CI → GitHub Release)
+
+Releases are cut by pushing a semver tag. `scripts/release.sh` does the bump +
+tag + push; `.github/workflows/release.yml` builds the DMG and publishes.
+
+```bash
+npm run release patch          # 2.0.1 -> 2.0.2   (also: minor | major | X.Y.Z)
+npm run release patch --dry-run   # preview, change nothing
+npm run release patch --yes       # skip the confirmation prompt
+```
+
+The script requires a clean tree, bumps `package.json`, commits, creates an
+annotated `vX.Y.Z` tag, and pushes with `--follow-tags`. Pushing the tag fires
+the workflow, which:
+
+1. builds the **arm64** DMG on `macos-14` (`npm ci` there pulls the matching
+   per-platform claude binary), and
+2. publishes a GitHub Release with the DMG attached, generated notes, and the
+   Gatekeeper `xattr` instructions.
+
+**arm64-only for now.** The Intel (`macos-13`) runner queues indefinitely —
+GitHub is retiring the Intel image — so the x64 job is commented out in the
+workflow. Re-enable by uncommenting the matrix block; each arch must build on
+its own host so `npm ci` bundles the right claude binary (a cross-arch build
+would ship the wrong one). Intel users run from source (`npm run desktop`).
+
+**The workflow must exist at the tagged commit** — GitHub reads a tag's workflow
+from that tag's tree. Tag from a branch that has `release.yml`.
+
+Builds are **unsigned** (`CSC_IDENTITY_AUTO_DISCOVERY: false`). Signing +
+notarization secrets slot in here when ready — see the TODO in `desktop/README.md`.
+
 ## Web-only fallback
 
 The app runs as a plain web server — Electron only wraps it:

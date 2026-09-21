@@ -77,9 +77,27 @@ npm run desktop    # launches the app against the repo dir
 
 ## Build installers
 
+Local one-off build:
+
 ```bash
 npm run desktop:build   # electron-builder → dmg / nsis / AppImage
 ```
+
+### Releasing via CI
+
+Cut a release by pushing a semver tag — CI builds the DMG and publishes the
+GitHub Release. `scripts/release.sh` handles the bump/tag/push:
+
+```bash
+npm run release patch     # bump (patch|minor|major|X.Y.Z), tag vX.Y.Z, push
+```
+
+`.github/workflows/release.yml` triggers on the `v*` tag, builds the **arm64**
+DMG on `macos-14`, and attaches it to the release. It is **arm64-only**: the
+Intel `macos-13` runner queues indefinitely (GitHub is retiring the image), so
+the x64 matrix entry is commented out. Re-enable by uncommenting it — each arch
+must build on its own host so `npm ci` bundles the correct per-platform claude
+binary. Full flow in `PACKAGING.md` § Releasing.
 
 ## Packaging TODO (before shipping real installers)
 
