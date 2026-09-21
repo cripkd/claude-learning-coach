@@ -58,6 +58,19 @@ case where the spawned sign-in can't proceed.
 - **Live dashboard** — the existing `state-write` hook rebuilds `dashboard/index.html`
   on every `state.json` write. The server watches that file and pushes an SSE `reload`
   event; the iframe cache-busts and re-renders. Zero changes to the dashboard pipeline.
+- **Model picker** — a header dropdown (Default/Opus/Sonnet/Haiku), persisted in
+  `localStorage` and sent as `model` on every `/api/chat` call. Server-side
+  `MODEL_ALIASES` allow-lists it before it ever reaches `query()`'s options — the
+  browser's choice is a hint, not a trusted value. Empty selection ("Default") omits
+  the field entirely, i.e. today's pre-existing behavior: whatever the CLI defaults to.
+- **Coach markdown rendering** — `CLAUDE.md.template` writes real markdown (headings,
+  bold, lists, `---`, fenced code), which used to render as literal `**`/`##`/`---` in
+  a chat bubble. `renderMarkdown()` in `app.js` is a small block parser for exactly what
+  the coach actually emits (not a general markdown implementation), applied only to
+  coach messages — the student's own messages stay plain text. Every code path escapes
+  raw text before any HTML is introduced, so this can't become an XSS vector. It also
+  strips machine-only sentinels like `<!-- coach:day-start … -->` (read by
+  `day-delivery-gate.mjs`) that were previously visible to the student as literal text.
 - **Add sources** — `/index-sources` only ever reads `courses/{slug}/sources/`; it never
   creates content, so a student needs some way to get files into that folder. The
   **"+ Add sources"** button (and dropping files onto the chat log) reads each file as

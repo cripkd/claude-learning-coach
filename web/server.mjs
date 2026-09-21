@@ -12,7 +12,7 @@
  * Endpoints:
  *   GET  /                       → chat + dashboard shell (public/index.html)
  *   GET  /api/courses            → list of courses under courses/
- *   POST /api/chat               → SSE stream of a coach turn (body: {slug, message})
+ *   POST /api/chat               → SSE stream of a coach turn (body: {slug, message, model?})
  *   POST /api/sources            → add text/markdown files to courses/:slug/sources/
  *   GET  /api/watch?slug=…       → SSE; pushes "reload" when the dashboard rebuilds
  *   GET  /dashboard/:slug/*      → serves the per-course dashboard build artifact
@@ -52,6 +52,10 @@ const MIME = {
 };
 
 const SLUG_RE = /^[a-zA-Z0-9_-]+$/;
+
+// Plain aliases (not pinned model IDs) so this tracks whatever Anthropic ships
+// under each name — matches the choices in the header's Model dropdown.
+const MODEL_ALIASES = new Set(['opus', 'sonnet', 'haiku']);
 
 // ─── Interactive questions ────────────────────────────────────────────────────
 // The model already emits structured multiple-choice questions via the built-in
@@ -422,9 +426,12 @@ async function handleChat(req, res) {
   let body;
   try { body = JSON.parse(raw || '{}'); } catch { return send(res, 400, 'Bad JSON'); }
 
-  const { slug, message } = body;
+  const { slug, message, model } = body;
   if (!slug || !SLUG_RE.test(slug)) return send(res, 400, 'Bad slug');
   if (!message || typeof message !== 'string') return send(res, 400, 'Empty message');
+  // Allow-list, not a pass-through: `model` reaches here as a raw string from
+  // the browser, and it selects what account resources a turn spends.
+  const chosenModel = MODEL_ALIASES.has(model) ? model : undefined;
 
   sseInit(res);
   const resume = sessions.get(slug);
@@ -459,6 +466,7 @@ async function handleChat(req, res) {
         // ~/.claude/settings.json must not leak into the coach session.
         settingSources: ['project'],
         ...(CLAUDE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_PATH } : {}),
+        ...(chosenModel ? { model: chosenModel } : {}), // omitted = CLI default, same as before this existed
       },
     });
 
