@@ -20,6 +20,7 @@ Built primarily for certification exams (AWS, Azure, GCP, and similar), but usab
 - [Day-to-day use](#day-to-day-use)
 - [Dashboard](#dashboard)
 - [Web UI (optional — no terminal)](#web-ui-optional--no-terminal)
+- [Desktop app (optional — Electron)](#desktop-app-optional--electron)
 - [How the coach works](#how-the-coach-works)
 - [Setup interview](#setup-interview-init-coach)
 - [Repo layout](#repo-layout)
@@ -135,6 +136,34 @@ It wraps the **same** coach — same `CLAUDE.md` dispatcher, tools, hooks, and a
 - **Live dashboard.** The same hook that rebuilds `dashboard/index.html` on every state write triggers an auto-reload of the embedded view.
 
 Fully additive — it changes nothing about terminal usage. Bound to `127.0.0.1` and tool-scoped for local single-user use; see [`web/README.md`](web/README.md) for architecture, security model, and roadmap.
+
+---
+
+## Desktop app (optional — Electron)
+
+For a student who shouldn't need `git clone` or `npm install` either, the web UI
+above is wrapped in an Electron desktop app: a double-click, native window with
+**nothing to install** — Electron ships its own Node, and the Agent SDK bundles
+Claude Code itself as a per-platform native binary. The only requirement at
+launch is a Claude account to sign into.
+
+```bash
+npm install          # pulls Electron (large download - see PACKAGING.md for a
+                      # corporate-network/Zscaler workaround if it fails)
+npm run desktop       # electron .  — launches the desktop app
+npm run desktop:build  # electron-builder — produces a distributable (dmg / nsis / AppImage)
+```
+
+It's the same coach again, one layer further out: Electron's `BrowserWindow`
+just points at the same local server the web UI runs (`web/server.mjs`), so
+everything above - chat, live dashboard, in-app "Connect your Claude account"
+sign-in - carries over unchanged. A student's course data is kept out of the
+app bundle (in the OS `userData` dir) so it survives app updates.
+
+Status: dev-tested, not yet packaged for distribution - installers aren't
+signed/notarized and there's no auto-updater yet. See [`PACKAGING.md`](PACKAGING.md)
+for build details and pinned versions, and [`desktop/README.md`](desktop/README.md)
+for architecture, the storage-root split, and the packaging TODO list.
 
 ---
 
