@@ -40,6 +40,23 @@ header a:hover { text-decoration: underline; }
   outline: 2px dashed var(--accent); outline-offset: -8px; background: var(--panel-2);
 }
 
+.split-menu { position: relative; }
+.split-menu-list {
+  position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 20;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px; min-width: 170px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+}
+/* :not([hidden]) so the `hidden` attribute's UA-default display:none isn't
+   overridden by this author rule (equal-specificity author styles always win
+   over UA styles, `display` included) — setting display only when shown. */
+.split-menu-list:not([hidden]) { display: flex; flex-direction: column; }
+.split-menu-list button {
+  all: unset; box-sizing: border-box; width: 100%; padding: 7px 10px; border-radius: 6px;
+  font-size: 13px; color: var(--text); cursor: pointer;
+}
+.split-menu-list button:hover { background: rgba(255,255,255,.08); }
+
 main {
   flex: 1; min-height: 0;
   display: grid;

@@ -24,6 +24,14 @@
     </label>
     <button id="addSources" type="button" class="add-sources-btn" disabled>+ Add sources</button>
     <input id="sourcesInput" type="file" accept=".md,.markdown,.txt" multiple hidden />
+    <div class="split-menu" id="cheatsheetMenu">
+      <button id="cheatsheetToggle" type="button" class="add-sources-btn" disabled
+              aria-haspopup="true" aria-expanded="false">Cheatsheet ▾</button>
+      <div id="cheatsheetList" class="split-menu-list" role="menu" hidden>
+        <button type="button" data-action="open" role="menuitem">Open in new tab ↗</button>
+        <button type="button" data-action="print" role="menuitem">Print…</button>
+      </div>
+    </div>
     <a id="openDash" href="#" target="_blank" rel="noopener">Open dashboard ↗</a>
   </header>
 
@@ -86,6 +94,7 @@
     </section>
   </main>
 
+  <script src="/public/markdown.js"></script>
   <script src="/public/app.js"></script>
 </body>
 </html>

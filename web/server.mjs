@@ -14,6 +14,7 @@
  *   GET  /api/courses            → list of courses under courses/
  *   POST /api/chat               → SSE stream of a coach turn (body: {slug, message, model?})
  *   POST /api/sources            → add text/markdown files to courses/:slug/sources/
+ *   GET  /courses/:slug/cheatsheet → raw text of courses/:slug/cheatsheet.md
  *   GET  /api/watch?slug=…       → SSE; pushes "reload" when the dashboard rebuilds
  *   GET  /dashboard/:slug/*      → serves the per-course dashboard build artifact
  *   GET  /public/*               → static UI assets
@@ -272,6 +273,20 @@ async function handleAddSources(req, res) {
   }
 
   send(res, 200, JSON.stringify({ ok: true, added, skipped }), { 'Content-Type': MIME['.json'] });
+}
+
+// ─── Cheatsheet ───────────────────────────────────────────────────────────────
+// Raw text of courses/{slug}/cheatsheet.md, for cheatsheet.html to fetch and
+// render client-side (via markdown.js — same renderer the chat uses). A named
+// route rather than folding into /dashboard/:slug/* on purpose: that route
+// serves the whole dashboard build dir, and cheatsheet.md isn't part of it.
+
+async function handleCheatsheet(res, slug) {
+  if (!slug || !SLUG_RE.test(slug) || slug === '__new__') return send(res, 400, 'Bad slug');
+  const filePath = join(COURSES_DIR, slug, 'cheatsheet.md');
+  if (!existsSync(filePath)) return send(res, 404, 'Not found');
+  const content = await readFile(filePath, 'utf8');
+  send(res, 200, content, { 'Content-Type': 'text/plain; charset=utf-8' });
 }
 
 // ─── Static file serving (sandboxed to a root dir) ─────────────────────────────
@@ -536,6 +551,9 @@ const server = createServer(async (req, res) => {
     if (path === '/api/answer' && req.method === 'POST') return handleAnswer(req, res);
     if (path === '/api/sources' && req.method === 'POST') return handleAddSources(req, res);
     if (path === '/api/watch') return handleWatch(res, url.searchParams.get('slug') || '');
+
+    const cheatsheetMatch = path.match(/^\/courses\/([^/]+)\/cheatsheet$/);
+    if (cheatsheetMatch) return handleCheatsheet(res, cheatsheetMatch[1]);
 
     if (path.startsWith('/dashboard/')) {
       const rest = path.slice('/dashboard/'.length);
