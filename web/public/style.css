@@ -66,6 +66,17 @@ main.resizing iframe { pointer-events: none; } /* let drag cross the iframe */
 .msg.user .bubble { background: var(--user); }
 .bubble em { color: var(--accent); font-style: normal; }
 .bubble.thinking { color: var(--muted); }
+.dots { display: inline-flex; align-items: center; gap: 4px; height: 1em; }
+.dots span {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+  animation: dot-bounce 1.2s infinite ease-in-out both;
+}
+.dots span:nth-child(1) { animation-delay: -0.32s; }
+.dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: scale(.6); opacity: .4; }
+  40% { transform: scale(1); opacity: 1; }
+}
 
 /* Coach markdown (see renderMarkdown() in app.js) */
 .bubble > :first-child { margin-top: 0; }

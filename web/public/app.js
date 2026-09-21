@@ -429,7 +429,7 @@ async function send(message) {
   addBubble('user', message);
   let bubble = addBubble('coach');
   bubble.classList.add('thinking');
-  bubble.textContent = '…';
+  bubble.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
 
   const res = await fetch('/api/chat', {
     method: 'POST',
