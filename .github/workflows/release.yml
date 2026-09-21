@@ -1,14 +1,15 @@
 name: Release desktop app
 
 # Fires when you push a semver tag (scripts/release.sh does that for you).
-# Builds a DMG per macOS architecture on its own runner, then publishes a
-# single GitHub Release with both DMGs attached.
+# Builds the Apple Silicon (arm64) DMG, then publishes a GitHub Release with it
+# attached.
 #
-# Why two runners instead of `--x64 --arm64` on one: the Agent SDK ships Claude
-# Code as a per-platform native binary and npm installs only the one matching
-# the build host. Building x64 on an arm64 Mac would bundle the arm64 claude
-# binary into the Intel app (see desktop/README.md § The claude binary). Each
-# runner's `npm ci` pulls the correct native binary for that arch.
+# Currently arm64-only: the Intel (macos-13) runner queues indefinitely as
+# GitHub retires the Intel image. The matrix is kept so x64 can be re-enabled by
+# uncommenting one block. Each arch must build on its own host — the Agent SDK
+# ships Claude Code as a per-platform native binary and `npm ci` installs only
+# the one matching the build host, so a cross-arch build would bundle the wrong
+# binary (see desktop/README.md § The claude binary).
 
 on:
   push:
@@ -27,8 +28,12 @@ jobs:
         include:
           - runner: macos-14   # Apple Silicon
             arch: arm64
-          - runner: macos-13   # Intel
-            arch: x64
+          # Intel (x64) is disabled: the macos-13 runner queues indefinitely
+          # (GitHub is retiring the Intel image; runners are scarce). Apple
+          # Silicon covers modern Macs. To re-enable, uncomment below — each arch
+          # must build on its own host so npm ci pulls the matching claude binary.
+          # - runner: macos-13   # Intel
+          #   arch: x64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +83,8 @@ jobs:
 
             **Downloads**
             - `learning-coach-*-arm64.dmg` — Apple Silicon (M1/M2/M3/M4)
-            - `learning-coach-*-x64.dmg` — Intel Mac
+
+            Intel (x64) builds are not shipped in this release. On an Intel Mac, run the app from source (`npm install && npm run desktop`).
 
             First launch is blocked by Gatekeeper. Right-click the app in Applications and choose **Open** twice, or run:
             ```
