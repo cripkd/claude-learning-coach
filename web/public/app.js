@@ -242,7 +242,12 @@ function renderQuestions(payload, onDone) {
   let active = 0;
   function onKey(e) {
     if (!card.isConnected || card.classList.contains('answered')) return;
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    // Only defer to the picker's own inline "Other…" text field — not every
+    // input/textarea on the page. The composer keeps DOM focus by default
+    // (nothing moves it onto the picker), so bailing on any input/textarea
+    // silently swallowed every arrow/number/Enter keystroke meant for the
+    // picker whenever the composer happened to still be focused.
+    if (e.target instanceof HTMLInputElement && e.target.classList.contains('qother')) return;
     const g = groups[active];
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       g.cursor = (g.cursor + (e.key === 'ArrowDown' ? 1 : -1) + g.opts.length) % g.opts.length;
@@ -354,7 +359,11 @@ async function send(message) {
   setStatus('');
   streaming = false;
   sendBtn.disabled = false;
-  input.focus();
+  // Don't steal focus into the textarea while a picker is waiting on the
+  // student — its keydown handler ignores input/textarea targets, so a
+  // focused textarea silently swallows the arrow/number/Enter keys meant
+  // for the picker.
+  if (!log.querySelector('.qcard:not(.answered)')) input.focus();
 
   // Onboarding may have created a course mid-conversation — pick it up and switch.
   if (currentSlug === NEW) {
