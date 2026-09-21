@@ -345,6 +345,17 @@ const CLAUDE_PATH = process.env.CLAUDE_BIN || resolveBundledClaude();
 const CLAUDE_BIN = CLAUDE_PATH || 'claude';
 const URL_RE = /(https?:\/\/[^\s"']+)/;
 
+// The auth subcommands are a plain child process, not the SDK-managed agent
+// loop. Drop ELECTRON_RUN_AS_NODE (set on the server process so the Electron
+// binary runs server.mjs as Node) before spawning: if it leaked into a
+// Node/Electron-based launcher it could make `claude auth …` argv be
+// reinterpreted as a script path. Harmless for a standalone binary.
+function authEnv() {
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+}
+
 // The active `claude auth login` child, if a sign-in is in flight. This OAuth flow
 // is code-paste (not a localhost callback): the CLI prints a URL, the student
 // authorizes in the browser, copies a code from the redirect page, and that code
@@ -353,13 +364,32 @@ let authChild = null;
 
 function authStatus() {
   return new Promise((resolveP) => {
-    const child = spawn(CLAUDE_BIN, ['auth', 'status', '--json'], { stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = '';
+    let child;
+    try {
+      child = spawn(CLAUDE_BIN, ['auth', 'status', '--json'], { stdio: ['ignore', 'pipe', 'pipe'], env: authEnv() });
+    } catch (err) {
+      console.error(`[auth] status: spawn threw for ${CLAUDE_BIN}: ${err?.message || err}`);
+      return resolveP({ loggedIn: false, error: `could not run claude: ${err?.message || err}`, bin: CLAUDE_BIN });
+    }
+    let out = '', errOut = '';
     child.stdout.on('data', (d) => { out += d; });
-    child.on('error', () => resolveP({ loggedIn: false, error: 'claude CLI not found' }));
-    child.on('close', () => {
-      try { resolveP(JSON.parse(out)); }
-      catch { resolveP({ loggedIn: false }); }
+    child.stderr.on('data', (d) => { errOut += d; });
+    child.on('error', (err) => {
+      // ENOENT / EACCES / killed-by-Gatekeeper (quarantined nested binary) land here.
+      console.error(`[auth] status: exec error for ${CLAUDE_BIN}: ${err?.message || err}`);
+      resolveP({ loggedIn: false, error: `could not run claude: ${err?.message || err}`, bin: CLAUDE_BIN });
+    });
+    child.on('close', (code) => {
+      const trimmed = errOut.trim();
+      if (trimmed) console.error(`[auth] status: exit ${code}, stderr: ${trimmed}`);
+      try {
+        resolveP(JSON.parse(out));
+      } catch {
+        // Non-JSON / empty output — a denied Keychain read or a crash both look
+        // like this. Surface the exit code + stderr so the cause is visible in
+        // the UI instead of a bare "not signed in".
+        resolveP({ loggedIn: false, exitCode: code, detail: trimmed || out.trim() || null, bin: CLAUDE_BIN });
+      }
     });
   });
 }
@@ -376,14 +406,16 @@ function handleAuthLogin(res, provider) {
   let child;
   try {
     // stdin piped so /api/auth/code can feed the pasted OAuth code back in.
-    child = spawn(CLAUDE_BIN, ['auth', 'login', providerFlag], { stdio: ['pipe', 'pipe', 'pipe'] });
-  } catch {
-    sseSend(res, 'error', 'Could not run the claude CLI. Install it, then retry.');
+    child = spawn(CLAUDE_BIN, ['auth', 'login', providerFlag], { stdio: ['pipe', 'pipe', 'pipe'], env: authEnv() });
+  } catch (err) {
+    console.error(`[auth] login: spawn threw for ${CLAUDE_BIN}: ${err?.message || err}`);
+    sseSend(res, 'error', `Could not run the bundled claude binary (${err?.message || err}).`);
     return res.end();
   }
   authChild = child;
 
   let opened = false;
+  let errOut = '';
   const scan = (chunk) => {
     const text = String(chunk);
     for (const line of text.split(/\r?\n/)) {
@@ -402,10 +434,24 @@ function handleAuthLogin(res, provider) {
     }
   };
   child.stdout.on('data', scan);
-  child.stderr.on('data', scan);
-  child.on('error', () => { authChild = null; sseSend(res, 'error', 'claude CLI not found'); res.end(); });
-  child.on('close', async () => {
+  child.stderr.on('data', (d) => { errOut += d; scan(d); });
+  child.on('error', (err) => {
+    console.error(`[auth] login: exec error for ${CLAUDE_BIN}: ${err?.message || err}`);
     authChild = null;
+    sseSend(res, 'error', `Could not run the bundled claude binary (${err?.message || err}).`);
+    res.end();
+  });
+  child.on('close', async (code) => {
+    authChild = null;
+    // If the CLI exited without ever printing a sign-in URL, the browser never
+    // opened — report that (with the exit code + stderr) instead of a bare
+    // status poll that just says "not signed in" with no reason.
+    if (!opened) {
+      const detail = errOut.trim();
+      console.error(`[auth] login: exited (code ${code}) before emitting a URL. stderr: ${detail || '(none)'}`);
+      sseSend(res, 'error', `Sign-in did not start (claude exited ${code}${detail ? `: ${detail}` : ''}).`);
+      return res.end();
+    }
     const status = await authStatus();
     sseSend(res, 'done', status);
     res.end();

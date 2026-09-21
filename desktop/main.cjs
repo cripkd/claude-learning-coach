@@ -189,6 +189,19 @@ async function startServer() {
   const port = await getFreePort();
   const claudeBin = resolveClaudeBin();
 
+  // Give the packaged app its own writable Claude config dir. Two reasons:
+  //  1. Persistence — a sign-in done inside the app is stored here and survives
+  //     restarts, independent of any system `claude` install.
+  //  2. It sidesteps cross-binary credential sharing: the bundled claude is a
+  //     nested Mach-O that electron-builder re-signs, so on macOS it may be
+  //     denied access to a Keychain item created by a differently-signed
+  //     `claude`. A dedicated config dir keeps the app's own login self-contained.
+  // Dev (not packaged) is left untouched so it keeps using your existing login.
+  const claudeConfigDir = app.isPackaged
+    ? (process.env.CLAUDE_CONFIG_DIR || path.join(app.getPath('userData'), 'claude-config'))
+    : null;
+  if (claudeConfigDir) mkdirSync(claudeConfigDir, { recursive: true });
+
   serverProc = fork(SERVER, [], {
     cwd: roots.dataRoot,
     env: {
@@ -197,6 +210,7 @@ async function startServer() {
       PORT: String(port),
       COACH_DATA_ROOT: roots.dataRoot,
       COACH_CACHE_ROOT: roots.cacheRoot,
+      ...(claudeConfigDir ? { CLAUDE_CONFIG_DIR: claudeConfigDir } : {}),
       ...(roots.dataRoot === roots.bundleRoot
         ? {}
         : { PATH: `${path.join(roots.dataRoot, '.bin')}${path.delimiter}${process.env.PATH ?? ''}` }),
