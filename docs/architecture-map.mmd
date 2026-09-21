@@ -1,0 +1,62 @@
+flowchart LR
+  U["👤 User"]
+
+  subgraph DO["What the user does"]
+    direction TB
+    C1["Setup<br/>/init-coach · /index-sources<br/>npm run embeddings:build"]
+    C2["Study<br/>'run diagnostic'<br/>'let's go' / 'Day N'"]
+    C3["View<br/>dashboard / web / desktop"]
+  end
+
+  COACH["🧠 Coach (LLM)<br/>skills + daily session<br/>reads sources · writes files"]
+
+  subgraph SCRIPTS["⚙️ Node scripts (deterministic)"]
+    direction TB
+    N1["build-dashboard.mjs"]
+    N2["build-embeddings.mjs"]
+    N3["retrieve.mjs"]
+    N4["check-day-readiness.mjs"]
+  end
+
+  subgraph HOOKS["🪝 Hooks (auto-fire)"]
+    direction TB
+    H1["on state.json write"]
+    H2["on sources/ write"]
+    H3["on turn-end (Stop)"]
+  end
+
+  subgraph FILES["📁 Files"]
+    direction TB
+    D1["materials<br/>SOURCES.md · sources/ · bank/<br/>_index.md · embeddings.ndjson"]
+    D2["progress<br/>memory · progress · misses<br/>calibration · quizzes"]
+    D3["state.json ⭐ canonical"]
+  end
+
+  DASH["📊 dashboard/index.html"]
+
+  U --> DO
+  C1 --> COACH
+  C2 --> COACH
+  COACH -->|reads via| N3 --> D1
+  COACH -->|writes| D2
+  COACH -->|writes| D3
+
+  D3 --> H1 --> N1 --> DASH
+  D1 --> H2 --> N2
+  COACH --> H3 --> N4
+
+  DASH --> C3
+  C3 --> U
+
+  classDef user fill:#1e3a5f,stroke:#4a90d9,color:#fff,stroke-width:2px
+  classDef coach fill:#2b2b4d,stroke:#8888dd,color:#fff,stroke-width:2px
+  classDef script fill:#3d2b1f,stroke:#cc7777,color:#fff,stroke-width:2px
+  classDef hook fill:#3a1f3a,stroke:#cc77cc,color:#fff,stroke-width:2px
+  classDef file fill:#1f3a2b,stroke:#77cc99,color:#fff,stroke-width:2px
+  classDef dash fill:#4d3a1f,stroke:#ddaa55,color:#fff,stroke-width:2px
+  class U,C1,C2,C3 user
+  class COACH coach
+  class N1,N2,N3,N4 script
+  class H1,H2,H3 hook
+  class D1,D2,D3 file
+  class DASH dash
