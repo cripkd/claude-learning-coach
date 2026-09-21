@@ -58,6 +58,14 @@ case where the spawned sign-in can't proceed.
 - **Live dashboard** — the existing `state-write` hook rebuilds `dashboard/index.html`
   on every `state.json` write. The server watches that file and pushes an SSE `reload`
   event; the iframe cache-busts and re-renders. Zero changes to the dashboard pipeline.
+- **Add sources** — `/index-sources` only ever reads `courses/{slug}/sources/`; it never
+  creates content, so a student needs some way to get files into that folder. The
+  **"+ Add sources"** button (and dropping files onto the chat log) reads each file as
+  text in the browser and posts it to `POST /api/sources`, which writes it into the
+  course's `sources/` dir. Text/markdown only (`.md`/`.markdown`/`.txt`) — other formats
+  are rejected with the same "convert first" guidance `/index-sources` itself gives. See
+  the main [`README.md`](../README.md) for the server-side PDF conversion this is
+  deliberately deferring.
 
 ## What it reuses unchanged
 
@@ -72,6 +80,10 @@ Done:
 - **Binds `127.0.0.1` only** — not reachable off the machine.
 - **`canUseTool` guard** — writes scoped to the course dir, reads scoped to the repo,
   Bash denylist. Replaces the earlier blanket `bypassPermissions`.
+- **`/api/sources` is sanitized independently of `canUseTool`** — it's a plain HTTP
+  handler, not a model tool call, so it applies its own guard: `basename()` strips any
+  path components from the client-supplied filename (no `../` escape from `sources/`),
+  extension allow-list, and a 2 MB per-file cap.
 
 Still required before any non-local / multi-user deployment:
 

@@ -29,6 +29,17 @@ select {
 header a { margin-left: auto; color: var(--accent); text-decoration: none; font-size: 13px; }
 header a:hover { text-decoration: underline; }
 
+.add-sources-btn {
+  background: transparent; color: var(--accent); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.add-sources-btn:hover:not(:disabled) { border-color: var(--accent); }
+.add-sources-btn:disabled { color: var(--muted); cursor: default; opacity: .6; }
+
+.log.dropzone-active {
+  outline: 2px dashed var(--accent); outline-offset: -8px; background: var(--panel-2);
+}
+
 main {
   flex: 1; min-height: 0;
   display: grid;

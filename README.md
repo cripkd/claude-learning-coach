@@ -27,6 +27,7 @@ Built primarily for certification exams (AWS, Azure, GCP, and similar), but usab
 - [Docs](#docs)
 - [⚡ Advanced: Semantic Retrieval](#-advanced-semantic-retrieval-optional)
 - [How to read the dashboard](#how-to-read-the-dashboard)
+- [Future improvements](#future-improvements)
 - [License](#license)
 
 ---
@@ -133,6 +134,7 @@ It wraps the **same** coach — same `CLAUDE.md` dispatcher, tools, hooks, and a
 
 - **No API key.** It drives the installed `claude` CLI, which uses your existing Claude subscription login. (First run may need a one-time `claude` login.)
 - **In-browser onboarding.** A "＋ Start a new course" flow runs `/init-coach` in chat, so even setup needs no terminal.
+- **Add sources without a filesystem.** A "+ Add sources" button (or dropping files onto the chat) sends `.md`/`.txt` study materials straight into `courses/{slug}/sources/` — no terminal, no `cp`.
 - **Live dashboard.** The same hook that rebuilds `dashboard/index.html` on every state write triggers an auto-reload of the embedded view.
 
 Fully additive — it changes nothing about terminal usage. Bound to `127.0.0.1` and tool-scoped for local single-user use; see [`web/README.md`](web/README.md) for architecture, security model, and roadmap.
@@ -429,6 +431,12 @@ For exams with no published passing score, shown in place of the margin and prob
 **v2.x:** Sparse-source handling - what the coach does when authoritative sources are thin or missing.
 
 **Future (gated on adoption):** Claude Code plugin packaging.
+
+---
+
+## Future improvements
+
+- **Server-side PDF conversion for "Add sources".** The web/Electron "+ Add sources" upload (see [Web UI](#web-ui-optional--no-terminal)) currently only accepts `.md`/`.txt` — matching what `/index-sources` itself reads. Most real study materials (exam guides, slide decks) ship as PDF, so a student on the no-terminal track still has to convert them externally before adding them. Closing this means a bundled PDF-to-text/markdown library in `web/server.mjs`'s `/api/sources` handler; deferred for now to avoid a new dependency, extraction-quality risk, and (for the Electron build) bundle-size growth in the same pass as the base upload feature.
 
 ---
 

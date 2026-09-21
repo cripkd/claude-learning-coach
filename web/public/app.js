@@ -10,6 +10,8 @@ const dashFrame = el('dashFrame');
 const dashEmpty = el('dashEmpty');
 const openDash = el('openDash');
 const statusEl = el('status');
+const addSourcesBtn = el('addSources');
+const sourcesInput = el('sourcesInput');
 
 const NEW = '__new__';
 let currentSlug = null;
@@ -83,12 +85,14 @@ function selectCourse(slug, hasDashboard) {
   setHint(slug);
 
   if (slug === NEW) {
+    addSourcesBtn.disabled = true;
     openDash.removeAttribute('href');
     dashFrame.removeAttribute('src');
     dashEmpty.textContent = 'New course setup — say “/init-coach” in the chat to begin.';
     dashEmpty.classList.add('show');
     return;
   }
+  addSourcesBtn.disabled = false;
 
   const src = `/dashboard/${slug}/index.html`;
   openDash.href = src;
@@ -109,6 +113,75 @@ function selectCourse(slug, hasDashboard) {
 }
 
 courseSel.addEventListener('change', applySelection);
+
+
+// ─── Add sources ───────────────────────────────────────────────────────────────
+// /index-sources only ever reads courses/{slug}/sources/ — it never creates
+// content. This is the piece that gets a student's files into that folder
+// without a terminal: text/markdown only for now (see README.md § Future
+// improvements for server-side PDF conversion).
+const SOURCE_EXT_RE = /\.(md|markdown|txt)$/i;
+
+async function addSourceFiles(fileList) {
+  if (!currentSlug || currentSlug === NEW) return;
+  const files = [...fileList].filter((f) => f.size > 0);
+  if (!files.length) return;
+
+  const payload = [];
+  const clientSkipped = [];
+  for (const f of files) {
+    if (!SOURCE_EXT_RE.test(f.name)) { clientSkipped.push({ name: f.name, reason: 'unsupported file type — convert to .md or .txt first' }); continue; }
+    payload.push({ name: f.name, content: await f.text() });
+  }
+
+  let added = [];
+  let skipped = clientSkipped;
+  if (payload.length) {
+    try {
+      const res = await fetch('/api/sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: currentSlug, files: payload }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        added = data.added;
+        skipped = [...skipped, ...data.skipped];
+      } else {
+        skipped = [...skipped, ...payload.map((f) => ({ name: f.name, reason: data.error || 'upload failed' }))];
+      }
+    } catch {
+      skipped = [...skipped, ...payload.map((f) => ({ name: f.name, reason: 'network error' }))];
+    }
+  }
+
+  const lines = [];
+  if (added.length) lines.push(`Added to sources/: ${added.join(', ')}`);
+  if (skipped.length) lines.push(`Skipped: ${skipped.map((s) => `${s.name} (${s.reason})`).join('; ')}`);
+  if (added.length) lines.push('Say “/index-sources” to build (or refresh) the topic index.');
+  if (lines.length) addBubble('coach', lines.join('\n'));
+}
+
+addSourcesBtn.addEventListener('click', () => sourcesInput.click());
+sourcesInput.addEventListener('change', () => {
+  addSourceFiles(sourcesInput.files);
+  sourcesInput.value = ''; // allow re-adding the same filename later
+});
+
+// Drag-and-drop straight onto the chat log — the same "Add sources" path, no
+// button click required.
+['dragenter', 'dragover'].forEach((evt) => log.addEventListener(evt, (e) => {
+  if (!currentSlug || currentSlug === NEW || !e.dataTransfer?.types?.includes('Files')) return;
+  e.preventDefault();
+  log.classList.add('dropzone-active');
+}));
+['dragleave', 'dragend'].forEach((evt) => log.addEventListener(evt, () => log.classList.remove('dropzone-active')));
+log.addEventListener('drop', (e) => {
+  if (!currentSlug || currentSlug === NEW || !e.dataTransfer?.files?.length) return;
+  e.preventDefault();
+  log.classList.remove('dropzone-active');
+  addSourceFiles(e.dataTransfer.files);
+});
 
 
 // ─── Question picker ─────────────────────────────────────────────────────────

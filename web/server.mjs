@@ -13,6 +13,7 @@
  *   GET  /                       → chat + dashboard shell (public/index.html)
  *   GET  /api/courses            → list of courses under courses/
  *   POST /api/chat               → SSE stream of a coach turn (body: {slug, message})
+ *   POST /api/sources            → add text/markdown files to courses/:slug/sources/
  *   GET  /api/watch?slug=…       → SSE; pushes "reload" when the dashboard rebuilds
  *   GET  /dashboard/:slug/*      → serves the per-course dashboard build artifact
  *   GET  /public/*               → static UI assets
@@ -21,9 +22,9 @@
  */
 
 import { createServer } from 'node:http';
-import { readFile, readdir, stat, watch } from 'node:fs/promises';
+import { readFile, readdir, stat, watch, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync, watch as watchSync } from 'node:fs';
-import { dirname, resolve, join, extname, normalize } from 'node:path';
+import { dirname, resolve, join, extname, normalize, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -213,6 +214,60 @@ async function listCourses() {
     out.push({ slug: e.name, exam, hasDashboard: existsSync(join(COURSES_DIR, e.name, 'dashboard', 'index.html')) });
   }
   return out;
+}
+
+// ─── Add sources ──────────────────────────────────────────────────────────────
+// Lets a student get study materials into courses/{slug}/sources/ without ever
+// touching a filesystem — the gap in the "no terminal" pitch otherwise: /index-sources
+// requires files already sitting in that folder, and neither the web UI nor the
+// Electron wrapper had any way to put them there.
+//
+// Text/markdown only for now (matching what /index-sources itself reads). PDFs
+// and other formats are rejected with the same "convert first" guidance the
+// skill already gives — see README.md § Future improvements for the follow-up
+// (server-side PDF conversion).
+
+const SOURCE_EXT = new Set(['.md', '.markdown', '.txt']);
+const MAX_SOURCE_FILES = 20;
+const MAX_SOURCE_BYTES = 2 * 1024 * 1024; // 2 MB per file — plenty for markdown/text notes
+
+async function handleAddSources(req, res) {
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  let body;
+  try { body = JSON.parse(raw || '{}'); } catch { return send(res, 400, 'Bad JSON'); }
+
+  const { slug, files } = body;
+  if (!slug || !SLUG_RE.test(slug) || slug === '__new__') return send(res, 400, 'Bad slug');
+  const courseDir = join(COURSES_DIR, slug);
+  if (!existsSync(courseDir)) return send(res, 404, JSON.stringify({ ok: false, error: 'no such course' }), { 'Content-Type': MIME['.json'] });
+  if (!Array.isArray(files) || !files.length) return send(res, 400, 'No files');
+  if (files.length > MAX_SOURCE_FILES) return send(res, 400, `Too many files — max ${MAX_SOURCE_FILES} per add`);
+
+  const sourcesDir = join(courseDir, 'sources');
+  await mkdir(sourcesDir, { recursive: true });
+
+  const added = [];
+  const skipped = [];
+  for (const f of files) {
+    const name = basename(String(f?.name ?? '').trim());
+    const content = f?.content;
+    if (!name) { skipped.push({ name: String(f?.name ?? ''), reason: 'empty filename' }); continue; }
+    if (!SOURCE_EXT.has(extname(name).toLowerCase())) {
+      skipped.push({ name, reason: 'unsupported file type — convert to .md or .txt first' });
+      continue;
+    }
+    if (typeof content !== 'string' || !content.trim()) { skipped.push({ name, reason: 'empty file' }); continue; }
+    if (Buffer.byteLength(content, 'utf8') > MAX_SOURCE_BYTES) { skipped.push({ name, reason: 'too large (max 2 MB)' }); continue; }
+    try {
+      await writeFile(join(sourcesDir, name), content, 'utf8');
+      added.push(name);
+    } catch (err) {
+      skipped.push({ name, reason: String(err?.message || err) });
+    }
+  }
+
+  send(res, 200, JSON.stringify({ ok: true, added, skipped }), { 'Content-Type': MIME['.json'] });
 }
 
 // ─── Static file serving (sandboxed to a root dir) ─────────────────────────────
@@ -471,6 +526,7 @@ const server = createServer(async (req, res) => {
     if (path === '/api/courses') return send(res, 200, JSON.stringify(await listCourses()), { 'Content-Type': MIME['.json'] });
     if (path === '/api/chat' && req.method === 'POST') return handleChat(req, res);
     if (path === '/api/answer' && req.method === 'POST') return handleAnswer(req, res);
+    if (path === '/api/sources' && req.method === 'POST') return handleAddSources(req, res);
     if (path === '/api/watch') return handleWatch(res, url.searchParams.get('slug') || '');
 
     if (path.startsWith('/dashboard/')) {
