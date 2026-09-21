@@ -1,62 +1,96 @@
-flowchart LR
-  U["👤 User"]
+flowchart TB
+  U["👤 Student"]
 
-  subgraph DO["What the user does"]
-    direction TB
-    C1["Setup<br/>/init-coach · /index-sources<br/>npm run embeddings:build"]
-    C2["Study<br/>'run diagnostic'<br/>'let's go' / 'Day N'"]
-    C3["View<br/>dashboard / web / desktop"]
+  %% ── Three front doors, one coach ────────────────────────────────
+  subgraph FRONT["🖥 Three front doors — same coach underneath"]
+    direction LR
+    F_TERM["Terminal<br/>claude CLI"]
+    F_WEB["Web<br/>npm run web"]
+    F_APP["Desktop<br/>Electron (.app)"]
   end
 
-  COACH["🧠 Coach (LLM)<br/>skills + daily session<br/>reads sources · writes files"]
-
-  subgraph SCRIPTS["⚙️ Node scripts (deterministic)"]
+  %% ── Electron wrapper internals ──────────────────────────────────
+  subgraph ELEC["📦 Electron wrapper (desktop/main.cjs)"]
     direction TB
-    N1["build-dashboard.mjs"]
-    N2["build-embeddings.mjs"]
-    N3["retrieve.mjs"]
-    N4["check-day-readiness.mjs"]
+    E1["resolveRoots()<br/>bundle / data / cache"]
+    E2["seedWorkspace()<br/>rewrite CLAUDE.md + .claude/ from bundle"]
+    E3["resolveClaudeBin()<br/>bundled per-platform claude binary"]
+    E4["fork(web/server.mjs)<br/>Electron-as-Node · loopback port"]
+    E1 --> E2 --> E3 --> E4
   end
 
-  subgraph HOOKS["🪝 Hooks (auto-fire)"]
+  %% ── Server + coach engine ───────────────────────────────────────
+  subgraph SRV["🌐 web/server.mjs (SSE ↔ browser)"]
     direction TB
-    H1["on state.json write"]
-    H2["on sources/ write"]
-    H3["on turn-end (Stop)"]
+    SV1["auth: claude auth status/login<br/>subscription login · no API key"]
+    SV2["query() — Agent SDK<br/>drives the claude binary"]
   end
 
-  subgraph FILES["📁 Files"]
+  COACH["🧠 Coach turn (LLM)<br/>reads CLAUDE.md · picks Read/Write/Bash<br/>teaches · quizzes · records"]
+
+  %% ── Deterministic node scripts ──────────────────────────────────
+  subgraph SCRIPTS["⚙️ Node scripts (deterministic — no LLM)"]
     direction TB
-    D1["materials<br/>SOURCES.md · sources/ · bank/<br/>_index.md · embeddings.ndjson"]
-    D2["progress<br/>memory · progress · misses<br/>calibration · quizzes"]
-    D3["state.json ⭐ canonical"]
+    N1["build-dashboard.mjs<br/>migrate · validate · compute · render"]
+    N2["build-embeddings.mjs<br/>sources → vectors"]
+    N3["retrieve.mjs<br/>vector query (top-K, domain-aware)"]
+    N4["check-day-readiness.mjs<br/>required-reads coverage"]
   end
 
-  DASH["📊 dashboard/index.html"]
+  %% ── Hooks ───────────────────────────────────────────────────────
+  subgraph HOOKS["🪝 Hooks (.claude/settings.json — auto-fire)"]
+    direction TB
+    H1["PostToolUse · on state.json write"]
+    H2["PostToolUse · on sources/ or bank/ write"]
+    H3["Stop · on turn-end (can block)"]
+  end
 
-  U --> DO
-  C1 --> COACH
-  C2 --> COACH
-  COACH -->|reads via| N3 --> D1
-  COACH -->|writes| D2
-  COACH -->|writes| D3
+  %% ── Files across three storage roots ────────────────────────────
+  subgraph ROOTS["📁 Storage roots (scripts/_roots.mjs)"]
+    direction TB
+    R1["BUNDLE_ROOT · read-only<br/>code · templates/ · starter-files/<br/>_index.md · embeddings.ndjson"]
+    R2["DATA_ROOT · writable (userData/workspace)<br/>SOURCES.md · sources/ · bank/ · memory · progress<br/>misses · calibration · quizzes · state.json ⭐"]
+    R3["CACHE_ROOT · disposable<br/>embedding model cache"]
+  end
 
-  D3 --> H1 --> N1 --> DASH
-  D1 --> H2 --> N2
-  COACH --> H3 --> N4
+  DASH["📊 dashboard/index.html<br/>build artifact · live-reload via SSE"]
 
-  DASH --> C3
-  C3 --> U
+  %% ── Wiring ───────────────────────────────────────────────────────
+  U --> FRONT
+  F_APP --> ELEC
+  E4 --> SRV
+  F_WEB --> SRV
+  F_TERM --> COACH
+  SV1 -. gates .-> COACH
+  SV2 --> COACH
+
+  COACH -->|reads via| N3 --> R1
+  COACH -->|reads/writes| R2
+  COACH -. or reads index/direct .-> R1
+
+  R2 -->|state.json write| H1 --> N1 --> DASH
+  R2 -->|sources/ write| H2 --> N2 --> R1
+  N2 -.model cache.-> R3
+  COACH -->|turn-end| H3 --> N4
+  H3 -. reads .-> R1
+
+  DASH --> U
 
   classDef user fill:#1e3a5f,stroke:#4a90d9,color:#fff,stroke-width:2px
-  classDef coach fill:#2b2b4d,stroke:#8888dd,color:#fff,stroke-width:2px
+  classDef front fill:#243b53,stroke:#5b9bd5,color:#fff,stroke-width:2px
+  classDef elec fill:#3a2f1f,stroke:#d0a050,color:#fff,stroke-width:2px
+  classDef srv fill:#2b2b4d,stroke:#8888dd,color:#fff,stroke-width:2px
+  classDef coach fill:#3a2b4d,stroke:#b088dd,color:#fff,stroke-width:2px
   classDef script fill:#3d2b1f,stroke:#cc7777,color:#fff,stroke-width:2px
   classDef hook fill:#3a1f3a,stroke:#cc77cc,color:#fff,stroke-width:2px
   classDef file fill:#1f3a2b,stroke:#77cc99,color:#fff,stroke-width:2px
   classDef dash fill:#4d3a1f,stroke:#ddaa55,color:#fff,stroke-width:2px
-  class U,C1,C2,C3 user
+  class U user
+  class F_TERM,F_WEB,F_APP front
+  class E1,E2,E3,E4 elec
+  class SV1,SV2 srv
   class COACH coach
   class N1,N2,N3,N4 script
   class H1,H2,H3 hook
-  class D1,D2,D3 file
+  class R1,R2,R3 file
   class DASH dash
