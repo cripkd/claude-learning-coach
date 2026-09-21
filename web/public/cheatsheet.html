@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cheat Sheet</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1a1a1a; background: #fff;
+      max-width: 760px; margin: 0 auto; padding: 20px 24px 64px;
+    }
+    .toolbar {
+      display: flex; justify-content: flex-end; gap: 10px; padding: 6px 0 14px;
+      border-bottom: 1px solid #e5e5e5; margin-bottom: 18px;
+    }
+    .toolbar button {
+      background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px;
+      font: inherit; font-size: 13px; cursor: pointer; color: #1a1a1a;
+    }
+    .toolbar button:hover { border-color: #888; }
+    #content > :first-child { margin-top: 0; }
+    h2, h3 { color: #111; margin: 26px 0 8px; line-height: 1.3; }
+    h2 { font-size: 20px; border-bottom: 1px solid #e5e5e5; padding-bottom: 6px; }
+    h3 { font-size: 16.5px; }
+    h4, h5 { font-size: 12px; color: #777; text-transform: uppercase; letter-spacing: .05em; margin: 20px 0 6px; }
+    p { margin: 8px 0; }
+    ul, ol { margin: 6px 0; padding-left: 22px; }
+    li { margin: 4px 0; }
+    li::marker { color: #555; }
+    hr { border: 0; border-top: 1px solid #e5e5e5; margin: 20px 0; }
+    strong { color: #000; }
+    a { color: #2a5db0; }
+    code { background: #f2f2f2; border-radius: 4px; padding: 1px 5px; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    pre { background: #f7f7f7; border: 1px solid #eee; border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+    pre code { background: none; padding: 0; }
+    .note { color: #777; font-size: 13px; font-style: italic; }
+    @media print {
+      .toolbar { display: none; }
+      body { padding: 0; max-width: none; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar" id="toolbar" hidden>
+    <button type="button" id="printBtn">Print</button>
+  </div>
+  <div id="content">Loading…</div>
+
+  <script src="/public/markdown.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const slug = params.get('slug');
+    const shouldPrint = params.get('print') === '1';
+    const contentEl = document.getElementById('content');
+    const toolbarEl = document.getElementById('toolbar');
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+    async function load() {
+      if (!slug) { contentEl.textContent = 'No course specified — open this page via the app’s Cheatsheet menu.'; return; }
+      document.title = `${slug} — Cheat Sheet`;
+      try {
+        const res = await fetch(`/courses/${encodeURIComponent(slug)}/cheatsheet`);
+        if (res.status === 404) {
+          contentEl.innerHTML = '<p class="note">No cheatsheet.md found for this course yet — it’s written by the coach as phases complete.</p>';
+          return;
+        }
+        if (!res.ok) { contentEl.textContent = 'Could not load the cheat sheet.'; return; }
+        const raw = await res.text();
+        const html = renderMarkdown(raw);
+        contentEl.innerHTML = html || '<p class="note">Empty — nothing appended yet.</p>';
+        toolbarEl.hidden = false;
+        if (shouldPrint) setTimeout(() => window.print(), 200);
+      } catch {
+        contentEl.textContent = 'Could not reach the server.';
+      }
+    }
+    load();
+  </script>
+</body>
+</html>
